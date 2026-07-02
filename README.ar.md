@@ -38,9 +38,19 @@
 
 ## 📸 لقطات الشاشة
 
-> _أضِف لقطاتك إلى `docs/` وأشِر إليها هنا._
->
-> `docs/screenshot-wizard.png` · `docs/screenshot-usb.png`
+<div align="center">
+
+| اختر ISO | إصدار مُكتشَف تلقائيًا |
+|:--:|:--:|
+| ![اختر ISO](docs/01-select-iso.png) | ![تم اكتشاف ISO](docs/02-iso-detected.png) |
+| **الهوية والإصدار** | **إعدادات الخصوصية** |
+| ![الهوية](docs/03-identity.png) | ![الإعدادات](docs/04-tweaks.png) |
+
+**أنشئ قرص USB الإقلاعي**
+
+<img src="docs/05-create-usb.png" width="440" alt="إنشاء USB إقلاعي" />
+
+</div>
 
 ---
 

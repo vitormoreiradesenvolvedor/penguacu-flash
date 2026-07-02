@@ -38,9 +38,19 @@
 
 ## 📸 截图
 
-> _将截图放入 `docs/` 并在此引用。_
->
-> `docs/screenshot-wizard.png` · `docs/screenshot-usb.png`
+<div align="center">
+
+| 选择 ISO | 自动识别版本 |
+|:--:|:--:|
+| ![选择 ISO](docs/01-select-iso.png) | ![已识别 ISO](docs/02-iso-detected.png) |
+| **身份与版本** | **隐私调整** |
+| ![身份](docs/03-identity.png) | ![调整](docs/04-tweaks.png) |
+
+**创建可启动 U 盘**
+
+<img src="docs/05-create-usb.png" width="440" alt="创建可启动 U 盘" />
+
+</div>
 
 ---
 
