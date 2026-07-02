@@ -1,0 +1,50 @@
+{
+  "name": "win10-iso-builder",
+  "version": "1.0.0",
+  "description": "Crie pendrives bootáveis do Windows 7, 8.1, 10 e 11",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "prepare-bins": "bash scripts/prepare-bins.sh",
+    "dist": "npm run prepare-bins && electron-builder --linux AppImage"
+  },
+  "devDependencies": {
+    "electron": "^28.3.0",
+    "electron-builder": "^24.13.0"
+  },
+  "build": {
+    "appId": "com.gaussfleet.penguacuflash",
+    "productName": "Penguaçu-Flash",
+    "afterPack": "scripts/afterPack.js",
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Utility",
+      "icon": "build/icons",
+      "desktop": {
+        "Name": "Penguaçu-Flash",
+        "Comment": "Crie pendrives bootáveis do Windows 7, 8.1, 10 e 11",
+        "StartupWMClass": "Penguaçu-Flash",
+        "Categories": "Utility;System;"
+      }
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "build/icon.png"
+    ],
+    "extraResources": [
+      { "from": "bin/", "to": "bin/", "filter": ["**/*"] }
+    ]
+  },
+  "allowScripts": {
+    "electron@28.3.3": true
+  }
+}

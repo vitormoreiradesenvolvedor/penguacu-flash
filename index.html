@@ -1,0 +1,2062 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Penguaçu-Flash</title>
+<style>
+:root {
+  --ground:  #F0F4F8;
+  --card:    #FFFFFF;
+  --card2:   #F5F8FB;
+  --border:  #D4DCE8;
+  --bd2:     #BFC9D8;
+  --text:    #1A2433;
+  --muted:   #64748B;
+  --accent:  #4F6BF8;
+  --ok:      #059669;
+  --warn:    #D97706;
+  --err:     #DC2626;
+  --tog-off: #C8D5E4;
+  --shadow:  0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
+  --mono: 'SF Mono','Cascadia Code','Consolas','Liberation Mono',ui-monospace,monospace;
+}
+
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+html,body { height:100%; background:var(--ground); font-family:system-ui,-apple-system,'Segoe UI',sans-serif; color:var(--text); font-size:14px; }
+
+/* ── App shell ──────────────────────────────────── */
+.app { display:flex; flex-direction:column; height:100%; }
+
+/* ── Header ─────────────────────────────────────── */
+.app-hdr {
+  flex-shrink:0; display:flex; align-items:center; gap:10px;
+  padding:12px 20px;
+  background:var(--card); border-bottom:1px solid var(--border);
+}
+.app-hdr h1 { font-size:14px; font-weight:700; color:var(--text); letter-spacing:-.01em; }
+.app-hdr p  { font-size:12px; color:var(--muted); }
+.dep-badge {
+  margin-left:auto; display:flex; align-items:center; gap:5px;
+  font-size:11.5px; color:var(--muted); flex-shrink:0;
+}
+.dep-dot { width:7px; height:7px; border-radius:50%; background:var(--bd2); }
+.dep-badge.ok .dep-dot { background:var(--ok); }
+.dep-badge.ok { color:var(--ok); }
+.dep-badge.err { color:var(--err); }
+.dep-badge.err .dep-dot { background:var(--err); }
+
+/* ── Step indicator ─────────────────────────────── */
+.wiz-nav {
+  flex-shrink:0; display:flex; align-items:center; padding:14px 24px;
+  background:var(--card); border-bottom:1px solid var(--border);
+  gap:0;
+}
+.step-item { display:flex; flex-direction:column; align-items:center; gap:4px; flex-shrink:0; }
+.step-circle {
+  width:26px; height:26px; border-radius:50%; border:2px solid var(--border);
+  display:flex; align-items:center; justify-content:center;
+  font-size:11px; font-weight:700; color:var(--muted);
+  transition:background .2s, border-color .2s, color .2s;
+}
+.step-label { font-size:10px; font-weight:600; color:var(--muted); letter-spacing:.04em; white-space:nowrap; }
+.step-item.active .step-circle  { background:var(--accent); border-color:var(--accent); color:#fff; }
+.step-item.active .step-label   { color:var(--accent); }
+.step-item.done .step-circle    { background:var(--ok); border-color:var(--ok); color:#fff; font-size:13px; }
+.step-item.done .step-label     { color:var(--ok); }
+.step-line { flex:1; height:1px; background:var(--border); transition:background .3s; }
+.step-line.done { background:var(--ok); }
+
+/* ── Wizard body ────────────────────────────────── */
+.wiz-body {
+  flex:1; overflow-y:auto; padding:24px;
+  scrollbar-width:thin; scrollbar-color:var(--border) transparent;
+}
+.wiz-body::-webkit-scrollbar { width:5px; }
+.wiz-body::-webkit-scrollbar-thumb { background:var(--border); border-radius:5px; }
+
+/* ── Step panels ────────────────────────────────── */
+.step-panel { display:none; }
+.step-panel.active { display:block; }
+
+@keyframes stepIn     { from { opacity:0; transform:translateX(14px); } to { opacity:1; transform:none; } }
+@keyframes stepInBack { from { opacity:0; transform:translateX(-14px); } to { opacity:1; transform:none; } }
+.step-panel.anim-fwd  { animation:stepIn .2s ease; }
+.step-panel.anim-back { animation:stepInBack .2s ease; }
+
+@media (prefers-reduced-motion:reduce) {
+  .step-panel.anim-fwd,.step-panel.anim-back { animation:none; }
+}
+
+.step-title { font-size:17px; font-weight:700; margin-bottom:4px; letter-spacing:-.015em; }
+.step-sub   { font-size:13px; color:var(--muted); margin-bottom:20px; }
+
+/* ── ISO drop zone ──────────────────────────────── */
+.dz {
+  border:2px dashed var(--border); border-radius:10px; padding:32px 20px;
+  text-align:center; cursor:pointer;
+  transition:border-color .15s, background .15s;
+}
+.dz:hover,.dz.over { border-color:var(--accent); background:rgba(79,107,248,.04); }
+.dz p { font-size:13px; color:var(--muted); margin-top:10px; line-height:1.5; }
+.dz u { color:var(--accent); cursor:pointer; text-decoration-color:rgba(79,107,248,.35); }
+input[type=file] { display:none; }
+
+.iso-loaded {
+  display:none; align-items:center; gap:12px;
+  padding:12px 14px;
+  background:#F0FDF6; border:1px solid #A7F3D0; border-radius:8px;
+}
+.iso-loaded.show { display:flex; }
+.iso-fname { flex:1; font-family:var(--mono); font-size:12px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.iso-meta  { font-size:12px; color:var(--muted); flex-shrink:0; }
+.iso-ok    { color:var(--ok); font-weight:700; flex-shrink:0; }
+.iso-rm    { color:var(--muted); cursor:pointer; font-size:18px; line-height:1; padding:0 2px; transition:color .1s; flex-shrink:0; }
+.iso-rm:hover { color:var(--err); }
+
+/* ── Form fields ────────────────────────────────── */
+.form-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.field label {
+  display:block; font-size:11.5px; font-weight:600;
+  text-transform:uppercase; letter-spacing:.06em;
+  color:var(--muted); margin-bottom:5px;
+}
+.field input,.field select {
+  width:100%; padding:9px 11px;
+  background:var(--card); border:1px solid var(--border); border-radius:6px;
+  color:var(--text); font:inherit; font-size:13.5px; outline:none;
+  -webkit-appearance:none; appearance:none;
+  transition:border-color .15s, box-shadow .15s;
+}
+.field input:focus,.field select:focus {
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px rgba(79,107,248,.1);
+}
+.sel-wrap { position:relative; }
+.sel-wrap::after {
+  content:'▾'; position:absolute; right:10px; top:50%;
+  transform:translateY(-50%); color:var(--muted);
+  pointer-events:none; font-size:11px;
+}
+
+/* ── Check rows ─────────────────────────────────── */
+.checks { background:var(--card); border:1px solid var(--border); border-radius:10px; overflow:hidden; box-shadow:var(--shadow); }
+.cr {
+  display:flex; align-items:center; gap:14px; padding:12px 16px;
+  border-bottom:1px solid var(--border); cursor:pointer;
+  transition:background .1s;
+}
+.cr:last-child { border-bottom:none; }
+.cr:hover { background:var(--card2); }
+.cr-info { flex:1; min-width:0; }
+.cr-name { font-size:13.5px; font-weight:500; color:var(--text); line-height:1.3; }
+.cr-desc { font-size:12px; color:var(--muted); margin-top:2px; }
+
+/* Toggle switch */
+.tog { position:relative; width:40px; height:22px; flex-shrink:0; }
+.tog input { display:none; }
+.tog-track {
+  position:absolute; inset:0; border-radius:22px; cursor:pointer;
+  background:var(--tog-off); transition:background .2s;
+}
+.tog-track::after {
+  content:''; position:absolute; width:16px; height:16px;
+  top:3px; left:3px; border-radius:50%; background:#fff;
+  box-shadow:0 1px 3px rgba(0,0,0,.2);
+  transition:transform .2s;
+}
+.tog input:checked ~ .tog-track { background:var(--accent); }
+.tog input:checked ~ .tog-track::after { transform:translateX(18px); }
+
+/* ── Output path ────────────────────────────────── */
+.out-row { display:flex; gap:8px; }
+.out-input {
+  flex:1; padding:9px 11px;
+  background:var(--card); border:1px solid var(--border); border-radius:6px;
+  color:var(--muted); font-family:var(--mono); font-size:12px; outline:none;
+  transition:border-color .15s;
+}
+.out-input.set { color:var(--text); }
+.out-input:focus { border-color:var(--accent); }
+.btn-browse {
+  padding:9px 14px; background:var(--card); border:1px solid var(--border);
+  border-radius:6px; font-size:12.5px; font-weight:600; color:var(--muted);
+  cursor:pointer; white-space:nowrap; transition:color .15s, border-color .15s;
+}
+.btn-browse:hover { color:var(--text); border-color:var(--accent); }
+
+/* ── Build button ───────────────────────────────── */
+.btn-build {
+  width:100%; padding:13px; margin-top:16px;
+  background:var(--accent); border:none; border-radius:8px;
+  color:#fff; font-size:14px; font-weight:700; cursor:pointer;
+  transition:filter .15s, opacity .15s;
+}
+.btn-build:hover:not(:disabled) { filter:brightness(1.08); }
+.btn-build:disabled { opacity:.35; cursor:not-allowed; }
+
+/* ── Result banner ──────────────────────────────── */
+.result { display:none; align-items:center; gap:10px; padding:11px 14px; border-radius:8px; font-size:13px; font-weight:600; margin-top:12px; }
+.result.ok  { display:flex; background:#ECFDF5; border:1px solid #A7F3D0; color:var(--ok);  }
+.result.err { display:flex; background:#FEF2F2; border:1px solid #FCA5A5; color:var(--err); }
+
+/* ── Log panel ──────────────────────────────────── */
+.log-wrap { overflow:hidden; max-height:0; transition:max-height .35s ease; margin-top:12px; }
+.log-wrap.open { max-height:120px; }          /* header + progress bar only */
+.log-wrap.open.expanded { max-height:540px; } /* header + progress + log body */
+.log-panel { background:#1A2433; border-radius:8px; overflow:hidden; }
+.log-hdr {
+  display:flex; align-items:center; gap:8px; padding:8px 14px;
+  border-bottom:1px solid rgba(255,255,255,.07);
+  font-size:10.5px; color:#4A6280; font-family:var(--mono);
+  letter-spacing:.07em; text-transform:uppercase;
+}
+.log-toggle {
+  margin-left:auto; background:none; border:none;
+  color:#304A64; font-size:10px; font-family:var(--mono); letter-spacing:.04em;
+  cursor:pointer; padding:2px 6px; border-radius:3px;
+  transition:color .15s, background .15s; flex-shrink:0;
+}
+.log-toggle:hover { color:#6080A0; background:rgba(255,255,255,.06); }
+.log-spin {
+  width:9px; height:9px; border-radius:50%;
+  border:2px solid #2A3A54; border-top-color:#4F6BF8;
+  animation:spin .6s linear infinite; display:none;
+}
+.log-spin.on { display:block; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* ── Progress bar inside log panel ── */
+.log-prog { display:none; padding:10px 14px 6px; border-bottom:1px solid rgba(255,255,255,.05); }
+.log-prog.visible { display:block; }
+.log-prog-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+.log-prog-stage { font-size:10.5px; font-family:var(--mono); color:#4A6280; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.log-prog-pct   { font-size:10.5px; font-family:var(--mono); color:#4F6BF8; font-weight:700; flex-shrink:0; margin-left:8px; min-width:32px; text-align:right; }
+.log-prog-track { height:3px; background:#0D1827; border-radius:3px; overflow:hidden; }
+.log-prog-fill  { height:100%; border-radius:3px; width:0%; background:linear-gradient(90deg,#3A55D8,#60AFFF); transition:width .35s ease; will-change:width; }
+@keyframes prog-stripe { 0%{background-position:0% 0} 100%{background-position:200% 0} }
+.log-prog-fill.indeterminate {
+  width:100% !important;
+  background:linear-gradient(90deg,#0D1827 20%,#3A55D8 50%,#0D1827 80%);
+  background-size:200% 100%;
+  animation:prog-stripe 1.4s linear infinite;
+}
+
+.log-body { padding:0 14px; max-height:0; overflow:hidden; transition:max-height .35s ease, padding .2s ease; }
+.log-wrap.open.expanded .log-body { padding:10px 14px; max-height:380px; overflow-y:auto; }
+.log-body::-webkit-scrollbar { width:3px; }
+.log-body::-webkit-scrollbar-thumb { background:#2A3A54; }
+.le { font-family:var(--mono); font-size:12px; line-height:1.75; opacity:0; transform:translateX(-4px); transition:opacity .15s, transform .15s; }
+.le.vis { opacity:1; transform:none; }
+.le.info { color:#5A7090; }
+.le.ok   { color:#2EC87A; }
+.le.warn { color:#E8921A; }
+.le.err  { color:#F05050; }
+.le.dim  { color:#283A4E; }
+
+/* ── XML export note ────────────────────────────── */
+.xml-note { font-size:12px; color:var(--muted); text-align:center; margin-top:12px; }
+.xml-note button { background:none; border:none; color:var(--accent); font-size:12px; cursor:pointer; text-decoration:underline; text-decoration-color:rgba(79,107,248,.3); padding:0; }
+
+/* ── Wizard footer ──────────────────────────────── */
+.wiz-footer {
+  flex-shrink:0; display:flex; align-items:center; justify-content:space-between;
+  padding:12px 24px;
+  background:var(--card); border-top:1px solid var(--border);
+}
+.btn-back {
+  font-size:13.5px; font-weight:500; color:var(--muted); background:none;
+  border:none; cursor:pointer; padding:8px 4px; transition:color .1s;
+}
+.btn-back:hover { color:var(--text); }
+.btn-back.hidden { visibility:hidden; }
+.step-dot-row { display:flex; gap:6px; align-items:center; }
+.dot-ind { width:7px; height:7px; border-radius:50%; background:var(--border); transition:background .2s; }
+.dot-ind.active { background:var(--accent); }
+.dot-ind.done   { background:var(--ok); }
+.btn-next {
+  font-size:13.5px; font-weight:600; color:#fff; background:var(--accent);
+  border:none; border-radius:6px; padding:9px 20px; cursor:pointer;
+  transition:filter .15s, opacity .15s; min-width:90px;
+}
+.btn-next:hover:not(:disabled) { filter:brightness(1.08); }
+.btn-next:disabled { opacity:.35; cursor:not-allowed; }
+
+/* ── Header scan button ─────────────────────────────── */
+.btn-scan {
+  padding:5px 11px; font-size:12px; font-weight:600; color:var(--accent);
+  background:rgba(79,107,248,.07); border:1.5px solid rgba(79,107,248,.22);
+  border-radius:6px; cursor:pointer; white-space:nowrap; flex-shrink:0;
+  transition:background .15s;
+}
+.btn-scan:hover { background:rgba(79,107,248,.14); }
+.hdr-right { margin-left:auto; display:flex; align-items:center; gap:10px; }
+.lang-wrap { position:relative; }
+.lang-wrap select {
+  -webkit-appearance:none; appearance:none;
+  padding:5px 26px 5px 10px; font-size:12px; font-weight:600;
+  background:var(--card2); border:1px solid var(--border); border-radius:6px;
+  color:var(--text); cursor:pointer; outline:none;
+  transition:border-color .15s;
+}
+.lang-wrap select:hover { border-color:var(--accent); }
+.lang-wrap::after {
+  content:'▾'; position:absolute; right:9px; top:50%;
+  transform:translateY(-50%); color:var(--muted); pointer-events:none; font-size:10px;
+}
+/* RTL support (Arabic) */
+[dir="rtl"] .sel-wrap::after, [dir="rtl"] .lang-wrap::after { right:auto; left:9px; }
+[dir="rtl"] .lang-wrap select { padding:5px 10px 5px 26px; }
+[dir="rtl"] .hdr-right { margin-left:0; margin-right:auto; }
+[dir="rtl"] .le { text-align:right; }
+[dir="rtl"] .btn-back { direction:ltr; }
+.btn-mount {
+  padding:4px 10px; font-size:11.5px; font-weight:700;
+  background:var(--accent); color:#fff; border:none; border-radius:5px;
+  cursor:pointer; flex-shrink:0; transition:opacity .15s;
+}
+.btn-mount:disabled { opacity:.45; cursor:not-allowed; }
+
+/* ── Modal ──────────────────────────────────────────── */
+.modal-bd {
+  display:none; position:fixed; inset:0; z-index:200;
+  background:rgba(10,18,30,.45); backdrop-filter:blur(3px);
+  align-items:center; justify-content:center; padding:20px;
+}
+.modal-bd.open { display:flex; }
+.modal {
+  background:var(--card); border-radius:12px; width:100%; max-width:500px;
+  max-height:calc(100vh - 48px); display:flex; flex-direction:column;
+  box-shadow:0 24px 72px rgba(0,0,0,.22);
+}
+.modal-hdr {
+  display:flex; align-items:center; gap:10px; padding:14px 18px;
+  border-bottom:1px solid var(--border); flex-shrink:0;
+}
+.modal-hdr h3 { font-size:14px; font-weight:700; flex:1; }
+.modal-close {
+  background:none; border:none; font-size:22px; line-height:1;
+  color:var(--muted); cursor:pointer; padding:0 3px;
+}
+.modal-close:hover { color:var(--text); }
+.modal-body { flex:1; overflow-y:auto; padding:18px; }
+
+/* Drive list */
+.drive-list { display:flex; flex-direction:column; gap:7px; margin-bottom:4px; }
+.drive-card {
+  display:flex; align-items:center; gap:12px; padding:11px 13px;
+  border:1.5px solid var(--border); border-radius:8px; cursor:pointer;
+  transition:border-color .15s, background .15s;
+}
+.drive-card:hover:not(.no-mount) { border-color:var(--accent); background:rgba(79,107,248,.04); }
+.drive-card.active { border-color:var(--accent); background:rgba(79,107,248,.07); }
+.drive-card.no-mount { opacity:.5; cursor:default; }
+.drive-ico { font-size:22px; flex-shrink:0; }
+.drive-info { flex:1; min-width:0; }
+.drive-name { font-size:13px; font-weight:600; }
+.drive-meta { font-size:11.5px; color:var(--muted); margin-top:2px; font-family:var(--mono); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.drive-pill {
+  font-size:10px; font-weight:700; padding:2px 7px; border-radius:10px; flex-shrink:0;
+}
+.drive-pill.ok   { background:#ECFDF5; color:var(--ok); }
+.drive-pill.warn { background:#FFFBEB; color:#92400E; }
+.drive-pill.dim  { background:var(--card2); color:var(--muted); }
+
+/* Analysis pane */
+.ana-section { margin-top:16px; }
+.ana-section h4 {
+  font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.07em;
+  color:var(--muted); margin-bottom:8px;
+}
+.ana-badge {
+  display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600;
+  padding:4px 10px; border-radius:6px; margin-bottom:12px;
+}
+.ana-badge.ok   { background:#ECFDF5; color:var(--ok); border:1px solid #A7F3D0; }
+.ana-badge.warn { background:#FFFBEB; color:#92400E; border:1px solid #FCD34D; }
+.ana-badge.dim  { background:var(--card2); color:var(--muted); border:1px solid var(--border); }
+.ana-row {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:6px 0; border-bottom:1px solid var(--border); font-size:13px;
+}
+.ana-row:last-child { border-bottom:none; }
+.ana-key { color:var(--muted); font-size:12px; }
+.ana-val { font-weight:500; font-family:var(--mono); font-size:12.5px; }
+.ana-pw  { display:flex; align-items:center; gap:6px; }
+.ana-pw button { background:none; border:none; font-size:11px; color:var(--accent); cursor:pointer; padding:0; }
+.tweak-grid { display:grid; grid-template-columns:1fr 1fr; gap:5px; }
+.tw-item { display:flex; align-items:center; gap:6px; font-size:12.5px; padding:3px 0; }
+.tw-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.tw-dot.on  { background:var(--ok); }
+.tw-dot.off { background:var(--bd2); }
+.empty-msg { text-align:center; padding:24px 0; font-size:13px; color:var(--muted); }
+.modal-footer {
+  display:flex; align-items:center; justify-content:flex-end; gap:8px;
+  padding:12px 18px; border-top:1px solid var(--border); flex-shrink:0;
+}
+.btn-import {
+  padding:9px 18px; background:var(--accent); border:none; border-radius:7px;
+  color:#fff; font-size:13px; font-weight:700; cursor:pointer;
+  transition:filter .15s, opacity .15s;
+}
+.btn-import:hover:not(:disabled) { filter:brightness(1.08); }
+.btn-import:disabled { opacity:.35; cursor:not-allowed; }
+.btn-modal-close {
+  padding:9px 14px; background:none; border:1.5px solid var(--border); border-radius:7px;
+  color:var(--muted); font-size:13px; font-weight:600; cursor:pointer;
+  transition:border-color .15s;
+}
+.btn-modal-close:hover { border-color:var(--bd2); color:var(--text); }
+
+/* ── Inject-mode Step 4 ─────────────────────────────── */
+.inject-target-box {
+  display:flex; align-items:center; gap:12px; padding:12px 14px; margin-bottom:14px;
+  background:#ECFDF5; border:1.5px solid #A7F3D0; border-radius:8px;
+}
+.inject-target-box .it-icon { font-size:20px; flex-shrink:0; }
+.inject-target-box .it-info { flex:1; min-width:0; }
+.inject-target-box .it-label { font-size:12px; font-weight:700; color:var(--ok); text-transform:uppercase; letter-spacing:.05em; }
+.inject-target-box .it-path  { font-size:12.5px; font-family:var(--mono); color:var(--text); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+/* ── Segment control (ISO / Pendrive mode selector) ── */
+.seg-ctrl { display:flex; border:1.5px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:18px; }
+.seg-btn  { flex:1; padding:9px 0; font-size:13px; font-weight:500; background:transparent; border:none; color:var(--muted); cursor:pointer; transition:background .15s,color .15s; }
+.seg-btn.active { background:var(--accent); color:#fff; }
+.seg-btn:hover:not(.active) { background:var(--surface); color:var(--text); }
+
+/* ── Disk selector cards (step 3 pendrive mode) ── */
+.disk-list { display:flex; flex-direction:column; gap:8px; margin-top:4px; }
+.disk-card { display:flex; align-items:center; gap:12px; padding:12px 14px; border:1.5px solid var(--border); border-radius:10px; cursor:pointer; background:var(--surface); transition:border-color .15s,background .15s; }
+.disk-card:hover  { border-color:var(--accent); }
+.disk-card.active { border-color:var(--accent); background:color-mix(in srgb,var(--accent) 8%,transparent); }
+.disk-card .dc-icon { font-size:22px; flex-shrink:0; }
+.disk-card .dc-info { flex:1; min-width:0; }
+.disk-card .dc-name { font-size:13px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.disk-card .dc-dev  { font-size:11.5px; font-family:var(--mono); color:var(--muted); margin-top:2px; }
+.disk-card .dc-size { font-size:12px; font-weight:600; color:var(--muted); white-space:nowrap; }
+.warn-del { margin-top:14px; padding:10px 12px; background:#FFF7ED; border:1px solid #FED7AA; border-radius:8px; font-size:12px; color:#9A3412; font-weight:500; }
+.btn-refresh-disks { margin-top:10px; font-size:12px; background:none; border:1px solid var(--border); border-radius:6px; padding:5px 10px; cursor:pointer; color:var(--muted); }
+.btn-refresh-disks:hover { border-color:var(--accent); color:var(--text); }
+
+.btn-clear-inject {
+  background:none; border:none; font-size:11.5px; color:var(--muted); cursor:pointer; flex-shrink:0;
+  padding:2px 4px; transition:color .1s;
+}
+.btn-clear-inject:hover { color:var(--err); }
+.btn-inject-modal {
+  width:100%; padding:11px; margin-top:8px; background:#059669; border:none; border-radius:8px;
+  color:#fff; font-size:13px; font-weight:700; cursor:pointer; transition:filter .15s;
+}
+.btn-inject-modal:hover { filter:brightness(1.1); }
+
+/* ── ISO already-customized warning ────────────────── */
+.iso-warn {
+  display:none; align-items:center; gap:8px; margin-top:8px;
+  padding:9px 12px; border-radius:7px;
+  background:#FFFBEB; border:1px solid #FCD34D; font-size:12px; color:#92400E;
+}
+
+/* ── Step 4: Concluído ──────────────────────────────── */
+.success-wrap { text-align:center; margin-bottom:24px; }
+@keyframes sCircle { from { stroke-dashoffset:145; } to { stroke-dashoffset:0; } }
+@keyframes sCheck  { from { stroke-dashoffset:42;  } to { stroke-dashoffset:0; } }
+.s-circle { stroke-dasharray:145; stroke-dashoffset:145; animation:sCircle .45s ease forwards; }
+.s-check  { stroke-dasharray:42;  stroke-dashoffset:42;  animation:sCheck  .3s .38s ease forwards; }
+@media (prefers-reduced-motion:reduce) {
+  .s-circle,.s-check { animation:none; stroke-dashoffset:0; }
+}
+.success-wrap h2 { margin-top:12px; }
+.success-wrap p  { margin-top:4px; }
+
+.s4-path {
+  display:flex; align-items:center; gap:10px;
+  padding:10px 14px; margin-bottom:18px;
+  background:var(--card2); border:1px solid var(--border); border-radius:8px;
+}
+.s4-path span { flex:1; font-family:var(--mono); font-size:12px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.s4-path button { flex-shrink:0; background:none; border:none; font-size:11.5px; font-weight:600; color:var(--accent); cursor:pointer; padding:2px 4px; }
+
+.s4-btns { display:flex; gap:10px; margin-bottom:12px; }
+.s4-btns button {
+  flex:1; padding:10px 6px; border-radius:7px; font-size:13px; font-weight:600; cursor:pointer;
+  border:1.5px solid var(--border); background:var(--card); color:var(--text);
+  transition:border-color .15s, background .15s;
+}
+.s4-btns button:hover { border-color:var(--accent); background:rgba(79,107,248,.04); }
+.s4-btns .s4-primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+.s4-btns .s4-primary:hover { filter:brightness(1.08); background:var(--accent); }
+
+.s4-vr {
+  display:none; align-items:center; gap:8px; padding:10px 14px;
+  border-radius:7px; font-size:13px; font-weight:600; margin-top:4px;
+}
+.s4-vr.ok  { display:flex; background:#ECFDF5; border:1px solid #A7F3D0; color:var(--ok); }
+.s4-vr.err { display:flex; background:#FEF2F2; border:1px solid #FCA5A5; color:var(--err); }
+.s4-vr.checking { display:flex; background:var(--card2); border:1px solid var(--border); color:var(--muted); }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- Header -->
+  <header class="app-hdr">
+    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+      <circle cx="11" cy="11" r="9.5" stroke="#4F6BF8" stroke-width="1.25"/>
+      <circle cx="11" cy="11" r="3.5" stroke="#4F6BF8" stroke-width="1.25"/>
+      <circle cx="11" cy="11" r="1.5" fill="#4F6BF8"/>
+    </svg>
+    <div>
+      <h1>Penguaçu-Flash</h1>
+      <p data-i18n="hdr.tagline">Crie pendrives bootáveis do Windows 7, 8.1, 10 e 11</p>
+    </div>
+    <div class="hdr-right">
+      <div class="lang-wrap sel-wrap">
+        <select id="lang-select" aria-label="Language" onchange="setLang(this.value)">
+          <option value="pt">🇧🇷 Português</option>
+          <option value="en">🇬🇧 English</option>
+          <option value="zh">🇨🇳 中文</option>
+          <option value="hi">🇮🇳 हिन्दी</option>
+          <option value="es">🇪🇸 Español</option>
+          <option value="ar">🇸🇦 العربية</option>
+        </select>
+      </div>
+      <button class="btn-scan" id="btn-scan-usb" data-i18n="btn.scanUsb">Analisar pendrive</button>
+      <div class="dep-badge" id="dep-xorriso">
+        <span class="dep-dot"></span>xorriso
+      </div>
+    </div>
+  </header>
+
+  <!-- USB Analysis Modal -->
+  <div class="modal-bd" id="modal-usb" role="dialog" aria-modal="true">
+    <div class="modal">
+      <div class="modal-hdr">
+        <svg viewBox="0 0 18 18" width="16" height="16" fill="none" aria-hidden="true">
+          <rect x="5" y="1" width="8" height="12" rx="1.5" stroke="#4F6BF8" stroke-width="1.4"/>
+          <rect x="7" y="13" width="4" height="3" rx=".5" stroke="#4F6BF8" stroke-width="1.2"/>
+          <line x1="9" y1="16" x2="9" y2="17" stroke="#4F6BF8" stroke-width="1.4" stroke-linecap="round"/>
+          <circle cx="9" cy="7" r="1.5" stroke="#4F6BF8" stroke-width="1.2"/>
+        </svg>
+        <h3 data-i18n="modal.title">Analisar pendrive bootável</h3>
+        <button class="modal-close" id="modal-usb-close" aria-label="Fechar">×</button>
+      </div>
+      <div class="modal-body" id="modal-usb-body">
+        <p class="empty-msg" data-i18n="modal.scanning">Escaneando pendrives…</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-modal-close" id="modal-usb-cancel" data-i18n="btn.close">Fechar</button>
+        <button class="btn-import" id="modal-usb-import" disabled data-i18n="modal.useAsBase">Usar como base</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step indicator -->
+  <nav class="wiz-nav" aria-label="Etapas">
+    <div class="step-item" id="si-0"><div class="step-circle">1</div><span class="step-label" data-i18n="step.iso">ISO</span></div>
+    <div class="step-line" id="sl-0"></div>
+    <div class="step-item" id="si-1"><div class="step-circle">2</div><span class="step-label" data-i18n="step.identity">Identidade</span></div>
+    <div class="step-line" id="sl-1"></div>
+    <div class="step-item" id="si-2"><div class="step-circle">3</div><span class="step-label" data-i18n="step.tweaks">Tweaks</span></div>
+    <div class="step-line" id="sl-2"></div>
+    <div class="step-item" id="si-3"><div class="step-circle">4</div><span class="step-label" data-i18n="step.create">Criar</span></div>
+    <div class="step-line" id="sl-3"></div>
+    <div class="step-item" id="si-4"><div class="step-circle">5</div><span class="step-label" data-i18n="step.done">Pronto</span></div>
+  </nav>
+
+  <!-- Step content -->
+  <div class="wiz-body" id="wiz-body">
+
+    <!-- Step 0: ISO -->
+    <div class="step-panel active" id="step-0">
+      <h2 class="step-title" data-i18n="s0.title">Selecione a ISO do Windows</h2>
+      <p class="step-sub" data-i18n="s0.sub">Windows 7, 8.1, 10 ou 11 — a versão é detectada pelo nome do arquivo</p>
+      <div class="dz" id="dz">
+        <svg viewBox="0 0 44 44" width="40" height="40" fill="none" aria-hidden="true">
+          <circle cx="22" cy="22" r="19" stroke="#C8D5E4" stroke-width="1.5"/>
+          <circle cx="22" cy="22" r="8"  stroke="#C8D5E4" stroke-width="1.5"/>
+          <circle cx="22" cy="22" r="2.5" fill="#C8D5E4"/>
+        </svg>
+        <p><span data-i18n="s0.dropHere">Arraste a ISO aqui</span><br><span data-i18n="s0.or">ou </span><u id="dz-link" data-i18n="s0.clickSelect">clique para selecionar</u></p>
+      </div>
+      <input type="file" id="iso-file" accept=".iso">
+      <div class="iso-warn" id="iso-warn">
+        <span>⚠</span> <span id="iso-warn-msg"></span>
+      </div>
+      <div class="iso-loaded" id="iso-loaded">
+        <svg viewBox="0 0 20 20" width="18" height="18" fill="none" aria-hidden="true">
+          <circle cx="10" cy="10" r="8.5" stroke="#059669" stroke-width="1.25"/>
+          <circle cx="10" cy="10" r="3"   stroke="#059669" stroke-width="1.25"/>
+          <circle cx="10" cy="10" r="1.2" fill="#059669"/>
+        </svg>
+        <span class="iso-fname" id="iso-fname">—</span>
+        <span class="iso-meta" id="iso-meta">—</span>
+        <span class="iso-ok">✓</span>
+        <span class="iso-rm" id="iso-rm" title="Remover" data-i18n-title="s0.remove">×</span>
+      </div>
+    </div>
+
+    <!-- Step 1: Identity -->
+    <div class="step-panel" id="step-1">
+      <h2 class="step-title" data-i18n="s1.title">Como será essa instalação?</h2>
+      <p class="step-sub" data-i18n="s1.sub">Dados da conta local e do computador</p>
+      <div class="form-grid">
+        <div class="field">
+          <label for="f-user" data-i18n="s1.user">Usuário</label>
+          <input type="text" id="f-user" value="GaussFleet" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="field">
+          <label for="f-pass"><span data-i18n="s1.pass">Senha</span> <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#94A3B8" data-i18n="s1.optional">(opcional)</span></label>
+          <input type="password" id="f-pass" value="" placeholder="Deixe vazio para sem senha" data-i18n-ph="s1.passPh" autocomplete="new-password">
+        </div>
+        <div class="field">
+          <label for="f-host" data-i18n="s1.host">Nome da máquina</label>
+          <input type="text" id="f-host" value="GaussFleet-PC" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="field sel-wrap">
+          <label for="f-tz" data-i18n="s1.tz">Fuso horário</label>
+          <select id="f-tz">
+            <option value="E. South America Standard Time" selected>BRT — Brasília (GMT-3)</option>
+            <option value="SA Western Standard Time">AMT — Manaus (GMT-4)</option>
+            <option value="SA Pacific Standard Time">ACT — Acre (GMT-5)</option>
+            <option value="UTC">UTC</option>
+            <option value="GMT Standard Time">WET — Lisboa</option>
+            <option value="Romance Standard Time">CET — Paris (GMT+1)</option>
+            <option value="Eastern Standard Time">EST — Nova York</option>
+            <option value="Pacific Standard Time">PST — Los Angeles</option>
+          </select>
+        </div>
+        <div class="field sel-wrap">
+          <label for="f-winver" data-i18n="s1.winver">Versão do Windows</label>
+          <select id="f-winver" onchange="refreshEditions()">
+            <option value="7">Windows 7</option>
+            <option value="8">Windows 8.1</option>
+            <option value="10" selected>Windows 10</option>
+            <option value="11">Windows 11</option>
+          </select>
+        </div>
+        <div class="field sel-wrap">
+          <label for="f-edition" data-i18n="s1.edition">Edição do Windows</label>
+          <select id="f-edition"></select>
+        </div>
+        <div class="field">
+          <label for="f-key"><span data-i18n="s1.key">Chave de produto</span> <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#94A3B8" data-i18n="s1.keyOpt">(opcional — deixe vazio para ativar depois)</span></label>
+          <input type="text" id="f-key" value="" placeholder="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX" autocomplete="off" spellcheck="false" maxlength="29"
+                 style="font-family:var(--mono);letter-spacing:.05em;text-transform:uppercase">
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: Tweaks -->
+    <div class="step-panel" id="step-2">
+      <h2 class="step-title" data-i18n="s2.title">O que você quer ativar?</h2>
+      <p class="step-sub" data-i18n="s2.sub">Aplicado via registro no primeiro login</p>
+      <div class="checks" id="checks"></div>
+    </div>
+
+    <!-- Step 3: Build -->
+    <div class="step-panel" id="step-3">
+      <!-- Mode selector (hidden in inject mode) -->
+      <div class="seg-ctrl" id="s3-seg">
+        <button class="seg-btn active" id="seg-iso"      onclick="setMode('iso')" data-i18n="s3.genIso">Gerar ISO</button>
+        <button class="seg-btn"        id="seg-pendrive" onclick="setMode('pendrive')" data-i18n="s3.createUsb">Criar Pendrive</button>
+      </div>
+      <!-- ISO mode -->
+      <div id="s3-iso-mode">
+        <h2 class="step-title" data-i18n="s3.isoTitle">Onde salvar a nova ISO?</h2>
+        <p class="step-sub" data-i18n="s3.isoSub">O autounattend.xml é injetado diretamente — sem recompilar</p>
+        <div class="out-row">
+          <input type="text" class="out-input" id="f-out" placeholder="Clique em Browse para escolher…" data-i18n-ph="s3.browsePh" readonly>
+          <button class="btn-browse" id="btn-browse" data-i18n="s3.browse">Browse</button>
+        </div>
+      </div>
+      <!-- Pendrive creation mode -->
+      <div id="s3-pendrive-mode" style="display:none">
+        <h2 class="step-title" data-i18n="s3.usbTitle">Criar pendrive bootável</h2>
+        <p class="step-sub" data-i18n="s3.usbSub">O pendrive será formatado, o Windows copiado e o autounattend.xml injetado</p>
+        <div class="field" style="margin-bottom:14px">
+          <label for="f-vol-label"><span data-i18n="s3.volLabel">Nome do pendrive</span> <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#94A3B8" data-i18n="s1.optional">(opcional)</span></label>
+          <input type="text" id="f-vol-label" value="" placeholder="WIN10USB" autocomplete="off" spellcheck="false" maxlength="32"
+                 style="font-family:var(--mono);text-transform:uppercase">
+        </div>
+        <div class="disk-list" id="pendrive-disk-list">
+          <p class="empty-msg" data-i18n="common.loading">Carregando...</p>
+        </div>
+        <button class="btn-refresh-disks" id="btn-refresh-disks" onclick="loadPendriveDisks()"><span data-i18n="s3.refresh">↻ Atualizar lista</span></button>
+        <div class="warn-del" id="warn-del" style="display:none" data-i18n-html="s3.warnDel">
+          ⚠ Todos os dados do pendrive selecionado serão <strong>apagados permanentemente</strong>.
+        </div>
+      </div>
+      <!-- Inject mode (pendrive direto) -->
+      <div id="s3-inject-mode" style="display:none">
+        <h2 class="step-title" data-i18n="s3.injectTitle">Injetar no pendrive</h2>
+        <p class="step-sub" data-i18n="s3.injectSub">O autounattend.xml será gravado diretamente na raiz do pendrive</p>
+        <div class="inject-target-box">
+          <span class="it-icon">💾</span>
+          <div class="it-info">
+            <div class="it-label" data-i18n="s3.dest">Destino</div>
+            <div class="it-path" id="inject-target-path">—</div>
+          </div>
+          <button class="btn-clear-inject" id="btn-clear-inject" title="Cancelar injeção direta" data-i18n-title="s3.cancelInject">✕</button>
+        </div>
+      </div>
+      <div class="result" id="result"></div>
+      <div class="log-wrap" id="log-wrap">
+        <div class="log-panel">
+          <div class="log-hdr">
+            <div class="log-spin" id="log-spin"></div>
+            <span data-i18n="s3.output">Saída</span>
+            <button class="log-toggle" id="log-toggle" onclick="toggleLog()" data-i18n="s3.expand">▼ expandir</button>
+          </div>
+          <div class="log-prog" id="log-prog">
+            <div class="log-prog-row">
+              <span class="log-prog-stage" id="log-prog-stage" data-i18n="s3.waiting">Aguardando…</span>
+              <span class="log-prog-pct"   id="log-prog-pct">0%</span>
+            </div>
+            <div class="log-prog-track">
+              <div class="log-prog-fill" id="log-prog-fill"></div>
+            </div>
+          </div>
+          <div class="log-body" id="log-body"></div>
+        </div>
+      </div>
+      <p class="xml-note"><span data-i18n="s3.xmlNote">Só precisa do arquivo?</span> <button id="btn-xml" data-i18n="s3.xmlBtn">Exportar só o autounattend.xml</button></p>
+    </div>
+
+    <!-- Step 4: Concluído -->
+    <div class="step-panel" id="step-4">
+      <div class="success-wrap">
+        <svg width="60" height="60" viewBox="0 0 52 52" fill="none" aria-hidden="true">
+          <circle class="s-circle" cx="26" cy="26" r="23" stroke="#059669" stroke-width="2.5" fill="none"/>
+          <polyline class="s-check" points="14,26 22,34 38,18" stroke="#059669" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+        <h2 class="step-title" id="s4-title" data-i18n="s4.title">ISO criada com sucesso!</h2>
+        <p class="step-sub" id="s4-sub" data-i18n="s4.sub">Pronta para gravar no pendrive com balenaEtcher ou Ventoy</p>
+      </div>
+      <div class="s4-path" id="s4-path">
+        <span id="s4-fname">—</span>
+        <button id="s4-copy" title="Copiar caminho" data-i18n-title="s4.copyTitle" data-i18n="s4.copy">Copiar</button>
+      </div>
+      <div class="s4-btns">
+        <button id="s4-verify" data-i18n="s4.verify">✓ Verificar XML</button>
+        <button id="s4-folder" data-i18n="s4.folder">Abrir pasta</button>
+        <button class="s4-primary" id="s4-new" data-i18n="s4.new">Nova ISO</button>
+      </div>
+      <div class="s4-vr" id="s4-vr"></div>
+    </div>
+
+  </div><!-- /wiz-body -->
+
+  <!-- Footer nav -->
+  <footer class="wiz-footer">
+    <button class="btn-back hidden" id="btn-back" data-i18n="footer.back">← Voltar</button>
+    <div class="step-dot-row" aria-hidden="true">
+      <div class="dot-ind" id="dot-0"></div>
+      <div class="dot-ind" id="dot-1"></div>
+      <div class="dot-ind" id="dot-2"></div>
+      <div class="dot-ind" id="dot-3"></div>
+      <div class="dot-ind" id="dot-4"></div>
+    </div>
+    <button class="btn-next" id="btn-next" disabled>Próximo</button>
+  </footer>
+
+</div>
+
+<script>
+// ══ Internationalization (i18n) ══════════════════════════════
+// 6 locales: Portuguese (BR, default) + the 5 most-spoken languages.
+// Technical tokens (ISO, autounattend.xml, Windows, UEFI/BIOS, TPM) stay untranslated.
+const I18N = {
+  pt: {
+    'hdr.tagline':'Crie pendrives bootáveis do Windows 7, 8.1, 10 e 11',
+    'btn.scanUsb':'Analisar pendrive','btn.close':'Fechar',
+    'modal.title':'Analisar pendrive bootável','modal.scanning':'Escaneando pendrives…','modal.useAsBase':'Usar como base',
+    'step.iso':'ISO','step.identity':'Identidade','step.tweaks':'Ajustes','step.create':'Criar','step.done':'Pronto',
+    's0.title':'Selecione a ISO do Windows','s0.sub':'Windows 7, 8.1, 10 ou 11 — a versão é detectada pelo nome do arquivo',
+    's0.dropHere':'Arraste a ISO aqui','s0.or':'ou ','s0.clickSelect':'clique para selecionar','s0.remove':'Remover',
+    's1.title':'Como será essa instalação?','s1.sub':'Dados da conta local e do computador',
+    's1.user':'Usuário','s1.pass':'Senha','s1.optional':'(opcional)','s1.passPh':'Deixe vazio para sem senha',
+    's1.host':'Nome da máquina','s1.tz':'Fuso horário','s1.winver':'Versão do Windows','s1.edition':'Edição do Windows',
+    's1.key':'Chave de produto','s1.keyOpt':'(opcional — deixe vazio para ativar depois)',
+    's2.title':'O que você quer ativar?','s2.sub':'Aplicado via registro no primeiro login',
+    's3.genIso':'Gerar ISO','s3.createUsb':'Criar Pendrive','s3.isoTitle':'Onde salvar a nova ISO?',
+    's3.isoSub':'O autounattend.xml é injetado diretamente — sem recompilar','s3.browsePh':'Clique em Procurar para escolher…','s3.browse':'Procurar',
+    's3.usbTitle':'Criar pendrive bootável','s3.usbSub':'O pendrive será formatado, o Windows copiado e o autounattend.xml injetado',
+    's3.volLabel':'Nome do pendrive','s3.refresh':'↻ Atualizar lista',
+    's3.warnDel':'⚠ Todos os dados do pendrive selecionado serão <strong>apagados permanentemente</strong>.',
+    's3.injectTitle':'Injetar no pendrive','s3.injectSub':'O autounattend.xml será gravado diretamente na raiz do pendrive',
+    's3.dest':'Destino','s3.cancelInject':'Cancelar injeção direta','s3.output':'Saída','s3.expand':'▼ expandir','s3.collapse':'▲ recolher',
+    's3.waiting':'Aguardando…','s3.xmlNote':'Só precisa do arquivo?','s3.xmlBtn':'Exportar só o autounattend.xml',
+    'common.loading':'Carregando...','common.apiUnavailable':'API indisponível',
+    's4.title':'ISO criada com sucesso!','s4.sub':'Pronta para gravar no pendrive com balenaEtcher ou Ventoy',
+    's4.usbTitle':'Pendrive criado com sucesso!','s4.usbSub':'Pronto para instalar o Windows com sua configuração personalizada',
+    's4.copy':'Copiar','s4.copied':'Copiado!','s4.copyTitle':'Copiar caminho','s4.verify':'✓ Verificar XML','s4.folder':'Abrir pasta','s4.new':'Nova ISO',
+    'footer.back':'← Voltar','footer.next':'Próximo →','footer.close':'Fechar','footer.createIso':'Criar ISO','footer.createUsb':'Criar pendrive','footer.inject':'Injetar no pendrive',
+    'iso.warnOurs':'Já foi customizada por este app — a configuração será atualizada',
+    'iso.warnUnknown':'Contém autounattend.xml de origem desconhecida — será substituído',
+    'usb.noDisks':'Nenhum pendrive detectado.','usb.noDisksHint':'Conecte um USB e clique em Atualizar lista.',
+    'result.isoFail':'Falha ao criar ISO. Verifique o log acima.','result.usbFail':'Falha ao criar pendrive. Verifique o log acima.','result.writeFail':'Não foi possível gravar no pendrive.',
+    'check.localAccount.name':'Conta local','check.localAccount.desc':'Cria o usuário sem precisar de conta Microsoft.',
+    'check.oobe.name':'Pular telas de boas-vindas','check.oobe.desc':'Remove o assistente OOBE, telas de privacidade e Cortana inicial.',
+    'check.bitlocker.name':'Desativar BitLocker automático','check.bitlocker.desc':'Impede criptografia silenciosa de dispositivo em hardware compatível.',
+    'check.telemetry.name':'Desativar telemetria','check.telemetry.desc':'Bloqueia envio de dados de diagnóstico (AllowTelemetry = 0).',
+    'check.cortana.name':'Desativar Cortana','check.cortana.desc':'Remove a integração Cortana via política de grupo.',
+    'check.defenderSamples.name':'Defender: sem envio de amostras','check.defenderSamples.desc':'Bloqueia submissão automática de arquivos ao Defender.',
+    'check.noAutoUpdate.name':'Update: só notificar','check.noAutoUpdate.desc':'Windows Update avisa mas não instala automaticamente.',
+    'check.noConsumerFeatures.name':'Sem apps patrocinados','check.noConsumerFeatures.desc':'Remove sugestões de conteúdo patrocinado na tela inicial.',
+    'check.noActivityHistory.name':'Sem histórico de atividades','check.noActivityHistory.desc':'Desativa o Timeline e registro de apps abertos recentemente.',
+    'check.win11Bypass.name':'Ignorar requisitos do Windows 11','check.win11Bypass.desc':'Instala sem exigir TPM 2.0, Secure Boot, 4GB RAM ou CPU compatível.',
+  },
+  en: {
+    'hdr.tagline':'Create bootable Windows 7, 8.1, 10 and 11 USB drives',
+    'btn.scanUsb':'Scan USB','btn.close':'Close',
+    'modal.title':'Scan bootable USB','modal.scanning':'Scanning USB drives…','modal.useAsBase':'Use as base',
+    'step.iso':'ISO','step.identity':'Identity','step.tweaks':'Tweaks','step.create':'Create','step.done':'Done',
+    's0.title':'Select the Windows ISO','s0.sub':'Windows 7, 8.1, 10 or 11 — the version is detected from the filename',
+    's0.dropHere':'Drop the ISO here','s0.or':'or ','s0.clickSelect':'click to select','s0.remove':'Remove',
+    's1.title':'How should this install look?','s1.sub':'Local account and computer details',
+    's1.user':'Username','s1.pass':'Password','s1.optional':'(optional)','s1.passPh':'Leave empty for no password',
+    's1.host':'Computer name','s1.tz':'Time zone','s1.winver':'Windows version','s1.edition':'Windows edition',
+    's1.key':'Product key','s1.keyOpt':'(optional — leave empty to activate later)',
+    's2.title':'What do you want to enable?','s2.sub':'Applied via registry on first sign-in',
+    's3.genIso':'Build ISO','s3.createUsb':'Create USB','s3.isoTitle':'Where to save the new ISO?',
+    's3.isoSub':'autounattend.xml is injected directly — no recompiling','s3.browsePh':'Click Browse to choose…','s3.browse':'Browse',
+    's3.usbTitle':'Create bootable USB','s3.usbSub':'The USB will be formatted, Windows copied, and autounattend.xml injected',
+    's3.volLabel':'USB name','s3.refresh':'↻ Refresh list',
+    's3.warnDel':'⚠ All data on the selected USB will be <strong>permanently erased</strong>.',
+    's3.injectTitle':'Inject into USB','s3.injectSub':'autounattend.xml will be written directly to the USB root',
+    's3.dest':'Target','s3.cancelInject':'Cancel direct injection','s3.output':'Output','s3.expand':'▼ expand','s3.collapse':'▲ collapse',
+    's3.waiting':'Waiting…','s3.xmlNote':'Just need the file?','s3.xmlBtn':'Export autounattend.xml only',
+    'common.loading':'Loading...','common.apiUnavailable':'API unavailable',
+    's4.title':'ISO created successfully!','s4.sub':'Ready to flash to a USB with balenaEtcher or Ventoy',
+    's4.usbTitle':'USB created successfully!','s4.usbSub':'Ready to install Windows with your custom configuration',
+    's4.copy':'Copy','s4.copied':'Copied!','s4.copyTitle':'Copy path','s4.verify':'✓ Verify XML','s4.folder':'Open folder','s4.new':'New ISO',
+    'footer.back':'← Back','footer.next':'Next →','footer.close':'Close','footer.createIso':'Create ISO','footer.createUsb':'Create USB','footer.inject':'Inject into USB',
+    'iso.warnOurs':'Already customized by this app — the configuration will be updated',
+    'iso.warnUnknown':'Contains an autounattend.xml of unknown origin — it will be replaced',
+    'usb.noDisks':'No USB drive detected.','usb.noDisksHint':'Plug in a USB and click Refresh list.',
+    'result.isoFail':'Failed to create ISO. Check the log above.','result.usbFail':'Failed to create USB. Check the log above.','result.writeFail':'Could not write to the USB.',
+    'check.localAccount.name':'Local account','check.localAccount.desc':'Creates the user without needing a Microsoft account.',
+    'check.oobe.name':'Skip welcome screens','check.oobe.desc':'Removes the OOBE wizard, privacy screens and initial Cortana.',
+    'check.bitlocker.name':'Disable automatic BitLocker','check.bitlocker.desc':'Prevents silent device encryption on compatible hardware.',
+    'check.telemetry.name':'Disable telemetry','check.telemetry.desc':'Blocks diagnostic data collection (AllowTelemetry = 0).',
+    'check.cortana.name':'Disable Cortana','check.cortana.desc':'Removes Cortana integration via group policy.',
+    'check.defenderSamples.name':'Defender: no sample submission','check.defenderSamples.desc':'Blocks automatic file submission to Defender.',
+    'check.noAutoUpdate.name':'Update: notify only','check.noAutoUpdate.desc':'Windows Update notifies but does not install automatically.',
+    'check.noConsumerFeatures.name':'No sponsored apps','check.noConsumerFeatures.desc':'Removes sponsored content suggestions on the Start menu.',
+    'check.noActivityHistory.name':'No activity history','check.noActivityHistory.desc':'Disables Timeline and the log of recently opened apps.',
+    'check.win11Bypass.name':'Bypass Windows 11 requirements','check.win11Bypass.desc':'Installs without requiring TPM 2.0, Secure Boot, 4GB RAM or a supported CPU.',
+  },
+  es: {
+    'hdr.tagline':'Crea memorias USB de arranque de Windows 7, 8.1, 10 y 11',
+    'btn.scanUsb':'Analizar USB','btn.close':'Cerrar',
+    'modal.title':'Analizar USB de arranque','modal.scanning':'Buscando memorias USB…','modal.useAsBase':'Usar como base',
+    'step.iso':'ISO','step.identity':'Identidad','step.tweaks':'Ajustes','step.create':'Crear','step.done':'Listo',
+    's0.title':'Selecciona la ISO de Windows','s0.sub':'Windows 7, 8.1, 10 u 11 — la versión se detecta por el nombre del archivo',
+    's0.dropHere':'Arrastra la ISO aquí','s0.or':'o ','s0.clickSelect':'haz clic para seleccionar','s0.remove':'Quitar',
+    's1.title':'¿Cómo será esta instalación?','s1.sub':'Datos de la cuenta local y del equipo',
+    's1.user':'Usuario','s1.pass':'Contraseña','s1.optional':'(opcional)','s1.passPh':'Déjalo vacío para no usar contraseña',
+    's1.host':'Nombre del equipo','s1.tz':'Zona horaria','s1.winver':'Versión de Windows','s1.edition':'Edición de Windows',
+    's1.key':'Clave de producto','s1.keyOpt':'(opcional — déjalo vacío para activar después)',
+    's2.title':'¿Qué quieres activar?','s2.sub':'Aplicado por registro en el primer inicio de sesión',
+    's3.genIso':'Generar ISO','s3.createUsb':'Crear USB','s3.isoTitle':'¿Dónde guardar la nueva ISO?',
+    's3.isoSub':'autounattend.xml se inyecta directamente — sin recompilar','s3.browsePh':'Haz clic en Examinar para elegir…','s3.browse':'Examinar',
+    's3.usbTitle':'Crear USB de arranque','s3.usbSub':'La USB se formateará, se copiará Windows y se inyectará autounattend.xml',
+    's3.volLabel':'Nombre de la USB','s3.refresh':'↻ Actualizar lista',
+    's3.warnDel':'⚠ Todos los datos de la USB seleccionada se <strong>borrarán permanentemente</strong>.',
+    's3.injectTitle':'Inyectar en la USB','s3.injectSub':'autounattend.xml se escribirá directamente en la raíz de la USB',
+    's3.dest':'Destino','s3.cancelInject':'Cancelar inyección directa','s3.output':'Salida','s3.expand':'▼ expandir','s3.collapse':'▲ contraer',
+    's3.waiting':'Esperando…','s3.xmlNote':'¿Solo necesitas el archivo?','s3.xmlBtn':'Exportar solo autounattend.xml',
+    'common.loading':'Cargando...','common.apiUnavailable':'API no disponible',
+    's4.title':'¡ISO creada con éxito!','s4.sub':'Lista para grabar en una USB con balenaEtcher o Ventoy',
+    's4.usbTitle':'¡USB creada con éxito!','s4.usbSub':'Lista para instalar Windows con tu configuración personalizada',
+    's4.copy':'Copiar','s4.copied':'¡Copiado!','s4.copyTitle':'Copiar ruta','s4.verify':'✓ Verificar XML','s4.folder':'Abrir carpeta','s4.new':'Nueva ISO',
+    'footer.back':'← Atrás','footer.next':'Siguiente →','footer.close':'Cerrar','footer.createIso':'Crear ISO','footer.createUsb':'Crear USB','footer.inject':'Inyectar en la USB',
+    'iso.warnOurs':'Ya fue personalizada por esta app — la configuración se actualizará',
+    'iso.warnUnknown':'Contiene un autounattend.xml de origen desconocido — se reemplazará',
+    'usb.noDisks':'No se detectó ninguna USB.','usb.noDisksHint':'Conecta una USB y haz clic en Actualizar lista.',
+    'result.isoFail':'No se pudo crear la ISO. Revisa el registro.','result.usbFail':'No se pudo crear la USB. Revisa el registro.','result.writeFail':'No se pudo escribir en la USB.',
+    'check.localAccount.name':'Cuenta local','check.localAccount.desc':'Crea el usuario sin necesitar una cuenta de Microsoft.',
+    'check.oobe.name':'Omitir pantallas de bienvenida','check.oobe.desc':'Quita el asistente OOBE, las pantallas de privacidad y el Cortana inicial.',
+    'check.bitlocker.name':'Desactivar BitLocker automático','check.bitlocker.desc':'Impide el cifrado silencioso del dispositivo en hardware compatible.',
+    'check.telemetry.name':'Desactivar telemetría','check.telemetry.desc':'Bloquea el envío de datos de diagnóstico (AllowTelemetry = 0).',
+    'check.cortana.name':'Desactivar Cortana','check.cortana.desc':'Quita la integración de Cortana mediante directiva de grupo.',
+    'check.defenderSamples.name':'Defender: sin envío de muestras','check.defenderSamples.desc':'Bloquea el envío automático de archivos a Defender.',
+    'check.noAutoUpdate.name':'Update: solo notificar','check.noAutoUpdate.desc':'Windows Update avisa pero no instala automáticamente.',
+    'check.noConsumerFeatures.name':'Sin apps patrocinadas','check.noConsumerFeatures.desc':'Quita las sugerencias de contenido patrocinado en Inicio.',
+    'check.noActivityHistory.name':'Sin historial de actividades','check.noActivityHistory.desc':'Desactiva la Escala de tiempo y el registro de apps abiertas.',
+    'check.win11Bypass.name':'Omitir requisitos de Windows 11','check.win11Bypass.desc':'Instala sin exigir TPM 2.0, Secure Boot, 4GB de RAM o CPU compatible.',
+  },
+  zh: {
+    'hdr.tagline':'制作 Windows 7、8.1、10 和 11 可启动 U 盘',
+    'btn.scanUsb':'扫描 U 盘','btn.close':'关闭',
+    'modal.title':'扫描可启动 U 盘','modal.scanning':'正在扫描 U 盘…','modal.useAsBase':'用作基础',
+    'step.iso':'ISO','step.identity':'身份','step.tweaks':'调整','step.create':'创建','step.done':'完成',
+    's0.title':'选择 Windows ISO','s0.sub':'Windows 7、8.1、10 或 11 — 版本会根据文件名自动识别',
+    's0.dropHere':'将 ISO 拖到这里','s0.or':'或 ','s0.clickSelect':'点击选择','s0.remove':'移除',
+    's1.title':'本次安装如何配置？','s1.sub':'本地账户与计算机信息',
+    's1.user':'用户名','s1.pass':'密码','s1.optional':'（可选）','s1.passPh':'留空则不设密码',
+    's1.host':'计算机名','s1.tz':'时区','s1.winver':'Windows 版本','s1.edition':'Windows 版本类型',
+    's1.key':'产品密钥','s1.keyOpt':'（可选 — 留空可稍后激活）',
+    's2.title':'你想启用哪些设置？','s2.sub':'首次登录时通过注册表应用',
+    's3.genIso':'生成 ISO','s3.createUsb':'创建 U 盘','s3.isoTitle':'新 ISO 保存到哪里？',
+    's3.isoSub':'autounattend.xml 直接注入 — 无需重新编译','s3.browsePh':'点击“浏览”选择…','s3.browse':'浏览',
+    's3.usbTitle':'创建可启动 U 盘','s3.usbSub':'U 盘将被格式化，复制 Windows 并注入 autounattend.xml',
+    's3.volLabel':'U 盘名称','s3.refresh':'↻ 刷新列表',
+    's3.warnDel':'⚠ 所选 U 盘上的所有数据将被<strong>永久擦除</strong>。',
+    's3.injectTitle':'注入到 U 盘','s3.injectSub':'autounattend.xml 将直接写入 U 盘根目录',
+    's3.dest':'目标','s3.cancelInject':'取消直接注入','s3.output':'输出','s3.expand':'▼ 展开','s3.collapse':'▲ 收起',
+    's3.waiting':'等待中…','s3.xmlNote':'只需要文件？','s3.xmlBtn':'仅导出 autounattend.xml',
+    'common.loading':'加载中...','common.apiUnavailable':'API 不可用',
+    's4.title':'ISO 创建成功！','s4.sub':'可用 balenaEtcher 或 Ventoy 写入 U 盘',
+    's4.usbTitle':'U 盘创建成功！','s4.usbSub':'可使用你的自定义配置安装 Windows',
+    's4.copy':'复制','s4.copied':'已复制！','s4.copyTitle':'复制路径','s4.verify':'✓ 校验 XML','s4.folder':'打开文件夹','s4.new':'新建 ISO',
+    'footer.back':'← 返回','footer.next':'下一步 →','footer.close':'关闭','footer.createIso':'创建 ISO','footer.createUsb':'创建 U 盘','footer.inject':'注入到 U 盘',
+    'iso.warnOurs':'已由本应用定制 — 配置将被更新',
+    'iso.warnUnknown':'包含来源未知的 autounattend.xml — 将被替换',
+    'usb.noDisks':'未检测到 U 盘。','usb.noDisksHint':'插入 U 盘后点击“刷新列表”。',
+    'result.isoFail':'创建 ISO 失败。请查看上方日志。','result.usbFail':'创建 U 盘失败。请查看上方日志。','result.writeFail':'无法写入 U 盘。',
+    'check.localAccount.name':'本地账户','check.localAccount.desc':'无需 Microsoft 账户即可创建用户。',
+    'check.oobe.name':'跳过欢迎屏幕','check.oobe.desc':'移除 OOBE 向导、隐私屏幕和初始 Cortana。',
+    'check.bitlocker.name':'禁用自动 BitLocker','check.bitlocker.desc':'防止在兼容硬件上静默加密设备。',
+    'check.telemetry.name':'禁用遥测','check.telemetry.desc':'阻止诊断数据收集（AllowTelemetry = 0）。',
+    'check.cortana.name':'禁用 Cortana','check.cortana.desc':'通过组策略移除 Cortana 集成。',
+    'check.defenderSamples.name':'Defender：不提交样本','check.defenderSamples.desc':'阻止自动向 Defender 提交文件。',
+    'check.noAutoUpdate.name':'更新：仅通知','check.noAutoUpdate.desc':'Windows 更新仅通知，不自动安装。',
+    'check.noConsumerFeatures.name':'无推广应用','check.noConsumerFeatures.desc':'移除开始菜单中的推广内容建议。',
+    'check.noActivityHistory.name':'无活动历史','check.noActivityHistory.desc':'禁用时间线和最近打开应用的记录。',
+    'check.win11Bypass.name':'绕过 Windows 11 要求','check.win11Bypass.desc':'无需 TPM 2.0、安全启动、4GB 内存或受支持的 CPU 即可安装。',
+  },
+  hi: {
+    'hdr.tagline':'Windows 7, 8.1, 10 और 11 के बूटेबल USB बनाएँ',
+    'btn.scanUsb':'USB स्कैन करें','btn.close':'बंद करें',
+    'modal.title':'बूटेबल USB स्कैन करें','modal.scanning':'USB ड्राइव खोजी जा रही हैं…','modal.useAsBase':'आधार के रूप में उपयोग करें',
+    'step.iso':'ISO','step.identity':'पहचान','step.tweaks':'सेटिंग्स','step.create':'बनाएँ','step.done':'पूर्ण',
+    's0.title':'Windows ISO चुनें','s0.sub':'Windows 7, 8.1, 10 या 11 — संस्करण फ़ाइल नाम से पहचाना जाता है',
+    's0.dropHere':'ISO यहाँ छोड़ें','s0.or':'या ','s0.clickSelect':'चुनने के लिए क्लिक करें','s0.remove':'हटाएँ',
+    's1.title':'यह इंस्टॉल कैसा होगा?','s1.sub':'लोकल खाता और कंप्यूटर विवरण',
+    's1.user':'उपयोगकर्ता नाम','s1.pass':'पासवर्ड','s1.optional':'(वैकल्पिक)','s1.passPh':'बिना पासवर्ड के लिए खाली छोड़ें',
+    's1.host':'कंप्यूटर का नाम','s1.tz':'समय क्षेत्र','s1.winver':'Windows संस्करण','s1.edition':'Windows संस्करण प्रकार',
+    's1.key':'उत्पाद कुंजी','s1.keyOpt':'(वैकल्पिक — बाद में सक्रिय करने के लिए खाली छोड़ें)',
+    's2.title':'आप क्या सक्षम करना चाहते हैं?','s2.sub':'पहली साइन-इन पर रजिस्ट्री के माध्यम से लागू',
+    's3.genIso':'ISO बनाएँ','s3.createUsb':'USB बनाएँ','s3.isoTitle':'नई ISO कहाँ सहेजें?',
+    's3.isoSub':'autounattend.xml सीधे इंजेक्ट होती है — बिना दोबारा कंपाइल किए','s3.browsePh':'चुनने के लिए Browse पर क्लिक करें…','s3.browse':'ब्राउज़ करें',
+    's3.usbTitle':'बूटेबल USB बनाएँ','s3.usbSub':'USB फ़ॉर्मेट होगी, Windows कॉपी होगा और autounattend.xml इंजेक्ट होगी',
+    's3.volLabel':'USB का नाम','s3.refresh':'↻ सूची ताज़ा करें',
+    's3.warnDel':'⚠ चयनित USB का सारा डेटा <strong>स्थायी रूप से मिटा दिया जाएगा</strong>।',
+    's3.injectTitle':'USB में इंजेक्ट करें','s3.injectSub':'autounattend.xml सीधे USB रूट में लिखी जाएगी',
+    's3.dest':'लक्ष्य','s3.cancelInject':'सीधी इंजेक्शन रद्द करें','s3.output':'आउटपुट','s3.expand':'▼ विस्तार','s3.collapse':'▲ संक्षेप',
+    's3.waiting':'प्रतीक्षा में…','s3.xmlNote':'सिर्फ़ फ़ाइल चाहिए?','s3.xmlBtn':'केवल autounattend.xml निर्यात करें',
+    'common.loading':'लोड हो रहा है...','common.apiUnavailable':'API उपलब्ध नहीं',
+    's4.title':'ISO सफलतापूर्वक बनी!','s4.sub':'balenaEtcher या Ventoy से USB में लिखने के लिए तैयार',
+    's4.usbTitle':'USB सफलतापूर्वक बनी!','s4.usbSub':'आपकी कस्टम कॉन्फ़िगरेशन के साथ Windows इंस्टॉल करने के लिए तैयार',
+    's4.copy':'कॉपी करें','s4.copied':'कॉपी हो गया!','s4.copyTitle':'पथ कॉपी करें','s4.verify':'✓ XML सत्यापित करें','s4.folder':'फ़ोल्डर खोलें','s4.new':'नई ISO',
+    'footer.back':'← वापस','footer.next':'आगे →','footer.close':'बंद करें','footer.createIso':'ISO बनाएँ','footer.createUsb':'USB बनाएँ','footer.inject':'USB में इंजेक्ट करें',
+    'iso.warnOurs':'इस ऐप द्वारा पहले ही कस्टमाइज़ की गई — कॉन्फ़िगरेशन अपडेट होगी',
+    'iso.warnUnknown':'अज्ञात स्रोत की autounattend.xml मौजूद — इसे बदल दिया जाएगा',
+    'usb.noDisks':'कोई USB नहीं मिली।','usb.noDisksHint':'USB लगाएँ और सूची ताज़ा करें पर क्लिक करें।',
+    'result.isoFail':'ISO बनाने में विफल। ऊपर लॉग देखें।','result.usbFail':'USB बनाने में विफल। ऊपर लॉग देखें।','result.writeFail':'USB में नहीं लिख सके।',
+    'check.localAccount.name':'लोकल खाता','check.localAccount.desc':'Microsoft खाते के बिना उपयोगकर्ता बनाता है।',
+    'check.oobe.name':'स्वागत स्क्रीन छोड़ें','check.oobe.desc':'OOBE विज़ार्ड, गोपनीयता स्क्रीन और प्रारंभिक Cortana हटाता है।',
+    'check.bitlocker.name':'स्वचालित BitLocker बंद करें','check.bitlocker.desc':'संगत हार्डवेयर पर मौन डिवाइस एन्क्रिप्शन रोकता है।',
+    'check.telemetry.name':'टेलीमेट्री बंद करें','check.telemetry.desc':'नैदानिक डेटा संग्रह रोकता है (AllowTelemetry = 0)।',
+    'check.cortana.name':'Cortana बंद करें','check.cortana.desc':'ग्रुप पॉलिसी के ज़रिए Cortana एकीकरण हटाता है।',
+    'check.defenderSamples.name':'Defender: नमूने न भेजें','check.defenderSamples.desc':'Defender को स्वचालित फ़ाइल सबमिशन रोकता है।',
+    'check.noAutoUpdate.name':'अपडेट: केवल सूचना','check.noAutoUpdate.desc':'Windows Update सूचित करता है पर स्वचालित इंस्टॉल नहीं करता।',
+    'check.noConsumerFeatures.name':'कोई प्रायोजित ऐप नहीं','check.noConsumerFeatures.desc':'स्टार्ट मेनू में प्रायोजित सामग्री सुझाव हटाता है।',
+    'check.noActivityHistory.name':'कोई गतिविधि इतिहास नहीं','check.noActivityHistory.desc':'टाइमलाइन और हाल में खोले ऐप्स का रिकॉर्ड बंद करता है।',
+    'check.win11Bypass.name':'Windows 11 आवश्यकताएँ बायपास करें','check.win11Bypass.desc':'TPM 2.0, Secure Boot, 4GB RAM या समर्थित CPU के बिना इंस्टॉल करता है।',
+  },
+  ar: {
+    'hdr.tagline':'أنشئ أقراص USB إقلاعية لنظام Windows 7 و8.1 و10 و11',
+    'btn.scanUsb':'فحص USB','btn.close':'إغلاق',
+    'modal.title':'فحص USB الإقلاعي','modal.scanning':'جارٍ البحث عن أقراص USB…','modal.useAsBase':'استخدام كأساس',
+    'step.iso':'ISO','step.identity':'الهوية','step.tweaks':'الإعدادات','step.create':'إنشاء','step.done':'تم',
+    's0.title':'اختر ملف ISO الخاص بـ Windows','s0.sub':'Windows 7 أو 8.1 أو 10 أو 11 — يتم التعرف على الإصدار من اسم الملف',
+    's0.dropHere':'أفلت ملف ISO هنا','s0.or':'أو ','s0.clickSelect':'انقر للاختيار','s0.remove':'إزالة',
+    's1.title':'كيف سيكون هذا التثبيت؟','s1.sub':'بيانات الحساب المحلي والكمبيوتر',
+    's1.user':'اسم المستخدم','s1.pass':'كلمة المرور','s1.optional':'(اختياري)','s1.passPh':'اتركه فارغًا لعدم استخدام كلمة مرور',
+    's1.host':'اسم الكمبيوتر','s1.tz':'المنطقة الزمنية','s1.winver':'إصدار Windows','s1.edition':'نسخة Windows',
+    's1.key':'مفتاح المنتج','s1.keyOpt':'(اختياري — اتركه فارغًا للتفعيل لاحقًا)',
+    's2.title':'ما الذي تريد تفعيله؟','s2.sub':'يُطبَّق عبر السجل عند أول تسجيل دخول',
+    's3.genIso':'إنشاء ISO','s3.createUsb':'إنشاء USB','s3.isoTitle':'أين تحفظ ملف ISO الجديد؟',
+    's3.isoSub':'يتم حقن autounattend.xml مباشرة — دون إعادة بناء','s3.browsePh':'انقر على استعراض للاختيار…','s3.browse':'استعراض',
+    's3.usbTitle':'إنشاء USB إقلاعي','s3.usbSub':'سيُهيَّأ USB وسيُنسخ Windows وسيُحقن autounattend.xml',
+    's3.volLabel':'اسم USB','s3.refresh':'↻ تحديث القائمة',
+    's3.warnDel':'⚠ سيتم <strong>محو جميع البيانات نهائيًا</strong> على USB المحدد.',
+    's3.injectTitle':'الحقن في USB','s3.injectSub':'سيُكتب autounattend.xml مباشرة في جذر USB',
+    's3.dest':'الوجهة','s3.cancelInject':'إلغاء الحقن المباشر','s3.output':'المُخرَجات','s3.expand':'▼ توسيع','s3.collapse':'▲ طي',
+    's3.waiting':'في الانتظار…','s3.xmlNote':'تحتاج الملف فقط؟','s3.xmlBtn':'تصدير autounattend.xml فقط',
+    'common.loading':'جارٍ التحميل...','common.apiUnavailable':'الواجهة البرمجية غير متاحة',
+    's4.title':'تم إنشاء ISO بنجاح!','s4.sub':'جاهز للكتابة على USB باستخدام balenaEtcher أو Ventoy',
+    's4.usbTitle':'تم إنشاء USB بنجاح!','s4.usbSub':'جاهز لتثبيت Windows بإعداداتك المخصصة',
+    's4.copy':'نسخ','s4.copied':'تم النسخ!','s4.copyTitle':'نسخ المسار','s4.verify':'✓ التحقق من XML','s4.folder':'فتح المجلد','s4.new':'ISO جديد',
+    'footer.back':'← رجوع','footer.next':'التالي →','footer.close':'إغلاق','footer.createIso':'إنشاء ISO','footer.createUsb':'إنشاء USB','footer.inject':'الحقن في USB',
+    'iso.warnOurs':'سبق تخصيصه بواسطة هذا التطبيق — سيتم تحديث الإعدادات',
+    'iso.warnUnknown':'يحتوي على autounattend.xml من مصدر غير معروف — سيتم استبداله',
+    'usb.noDisks':'لم يتم اكتشاف أي USB.','usb.noDisksHint':'أدخل USB وانقر على تحديث القائمة.',
+    'result.isoFail':'فشل إنشاء ISO. راجع السجل أعلاه.','result.usbFail':'فشل إنشاء USB. راجع السجل أعلاه.','result.writeFail':'تعذّرت الكتابة على USB.',
+    'check.localAccount.name':'حساب محلي','check.localAccount.desc':'ينشئ المستخدم دون الحاجة إلى حساب Microsoft.',
+    'check.oobe.name':'تخطي شاشات الترحيب','check.oobe.desc':'يزيل معالج OOBE وشاشات الخصوصية وCortana الأولي.',
+    'check.bitlocker.name':'تعطيل BitLocker التلقائي','check.bitlocker.desc':'يمنع التشفير الصامت للجهاز على الأجهزة المتوافقة.',
+    'check.telemetry.name':'تعطيل القياس عن بُعد','check.telemetry.desc':'يمنع جمع بيانات التشخيص (AllowTelemetry = 0).',
+    'check.cortana.name':'تعطيل Cortana','check.cortana.desc':'يزيل تكامل Cortana عبر نهج المجموعة.',
+    'check.defenderSamples.name':'Defender: بدون إرسال عينات','check.defenderSamples.desc':'يمنع الإرسال التلقائي للملفات إلى Defender.',
+    'check.noAutoUpdate.name':'التحديث: إشعار فقط','check.noAutoUpdate.desc':'يُشعر Windows Update دون التثبيت تلقائيًا.',
+    'check.noConsumerFeatures.name':'بدون تطبيقات مموّلة','check.noConsumerFeatures.desc':'يزيل اقتراحات المحتوى المموّل في قائمة ابدأ.',
+    'check.noActivityHistory.name':'بدون سجل نشاط','check.noActivityHistory.desc':'يعطّل المخطط الزمني وسجل التطبيقات المفتوحة مؤخرًا.',
+    'check.win11Bypass.name':'تجاوز متطلبات Windows 11','check.win11Bypass.desc':'يثبّت دون اشتراط TPM 2.0 أو Secure Boot أو 4GB RAM أو معالج مدعوم.',
+  },
+}
+
+// Supplementary strings for the USB-analysis modal + verify panel, merged into I18N.
+// Kept separate so the block can grow without touching each language's main object.
+const I18N_MODAL = {
+  pt: {
+    'modal.usbHint':'Clique em um pendrive para analisar','modal.noUsb':'Nenhum pendrive USB detectado.','modal.noUsbHint':'Conecte o pendrive e tente novamente.',
+    'modal.reading':'Lendo autounattend.xml…','modal.mount':'Montar','modal.mounting':'Montando…','modal.mountFail':'Falhou — tentar novamente','modal.err':'Erro',
+    'ana.noXml':'— Sem autounattend.xml','ana.checkingRoot':'Verificando conteúdo da raiz…','ana.xmlInvalid':'⚠ XML inválido ou ilegível',
+    'ana.byThisApp':'✓ Gerado por este app','ana.unknownOrigin':'⚠ Origem desconhecida','ana.reveal':'revelar','ana.hide':'ocultar','ana.noPass':'— sem senha',
+    'ana.identity':'Identidade','ana.tweaks':'Ajustes','ana.user':'Usuário','ana.pass':'Senha','ana.machine':'Máquina','ana.tz':'Fuso',
+    'ana.injectUpdate':'Atualizar configuração neste pendrive →','ana.injectReplace':'Substituir configuração neste pendrive →',
+    'ana.injectTitle':'Injetar configuração atualizada','ana.injectDesc':'Preenche o assistente com as configs acima e grava direto no pendrive — sem recriar a ISO.',
+    'ana.rootFiles':'Arquivos na raiz','ana.xmlUnexpected':'⚠ XML encontrado mas com nome inesperado — entre em contato.',
+    'ana.winUsbTitle':'Pendrive Windows detectado sem configuração automática','ana.winUsbDesc':'Configure as preferências no assistente e injete direto neste pendrive — sem recriar a ISO.',
+    'ana.configInject':'Configurar e injetar neste pendrive →','ana.rootEmpty':'Raiz inacessível ou vazia.',
+    'verify.checking':'Verificando…','verify.ok':'✓ /autounattend.xml gerado por este app confirmado na ISO','verify.unsigned':'⚠ autounattend.xml presente mas sem assinatura do app','verify.missing':'✗ autounattend.xml não encontrado — algo deu errado',
+    'export.saved':'autounattend.xml salvo em',
+  },
+  en: {
+    'modal.usbHint':'Click a USB drive to analyze','modal.noUsb':'No USB drive detected.','modal.noUsbHint':'Plug in the USB and try again.',
+    'modal.reading':'Reading autounattend.xml…','modal.mount':'Mount','modal.mounting':'Mounting…','modal.mountFail':'Failed — try again','modal.err':'Error',
+    'ana.noXml':'— No autounattend.xml','ana.checkingRoot':'Checking root contents…','ana.xmlInvalid':'⚠ Invalid or unreadable XML',
+    'ana.byThisApp':'✓ Generated by this app','ana.unknownOrigin':'⚠ Unknown origin','ana.reveal':'reveal','ana.hide':'hide','ana.noPass':'— no password',
+    'ana.identity':'Identity','ana.tweaks':'Tweaks','ana.user':'User','ana.pass':'Password','ana.machine':'Computer','ana.tz':'Time zone',
+    'ana.injectUpdate':'Update configuration on this USB →','ana.injectReplace':'Replace configuration on this USB →',
+    'ana.injectTitle':'Inject updated configuration','ana.injectDesc':'Fills the wizard with the settings above and writes straight to the USB — no ISO rebuild.',
+    'ana.rootFiles':'Files in root','ana.xmlUnexpected':'⚠ XML found but with an unexpected name — please get in touch.',
+    'ana.winUsbTitle':'Windows USB detected without automatic setup','ana.winUsbDesc':'Set your preferences in the wizard and inject straight to this USB — no ISO rebuild.',
+    'ana.configInject':'Configure and inject to this USB →','ana.rootEmpty':'Root inaccessible or empty.',
+    'verify.checking':'Verifying…','verify.ok':'✓ /autounattend.xml generated by this app confirmed on the ISO','verify.unsigned':'⚠ autounattend.xml present but without the app signature','verify.missing':'✗ autounattend.xml not found — something went wrong',
+    'export.saved':'autounattend.xml saved to',
+  },
+  es: {
+    'modal.usbHint':'Haz clic en una USB para analizar','modal.noUsb':'No se detectó ninguna USB.','modal.noUsbHint':'Conecta la USB e inténtalo de nuevo.',
+    'modal.reading':'Leyendo autounattend.xml…','modal.mount':'Montar','modal.mounting':'Montando…','modal.mountFail':'Falló — reintentar','modal.err':'Error',
+    'ana.noXml':'— Sin autounattend.xml','ana.checkingRoot':'Comprobando el contenido de la raíz…','ana.xmlInvalid':'⚠ XML inválido o ilegible',
+    'ana.byThisApp':'✓ Generado por esta app','ana.unknownOrigin':'⚠ Origen desconocido','ana.reveal':'mostrar','ana.hide':'ocultar','ana.noPass':'— sin contraseña',
+    'ana.identity':'Identidad','ana.tweaks':'Ajustes','ana.user':'Usuario','ana.pass':'Contraseña','ana.machine':'Equipo','ana.tz':'Zona',
+    'ana.injectUpdate':'Actualizar configuración en esta USB →','ana.injectReplace':'Reemplazar configuración en esta USB →',
+    'ana.injectTitle':'Inyectar configuración actualizada','ana.injectDesc':'Rellena el asistente con los ajustes de arriba y escribe directo en la USB — sin recrear la ISO.',
+    'ana.rootFiles':'Archivos en la raíz','ana.xmlUnexpected':'⚠ XML encontrado pero con nombre inesperado — ponte en contacto.',
+    'ana.winUsbTitle':'USB de Windows detectada sin configuración automática','ana.winUsbDesc':'Configura tus preferencias en el asistente e inyecta directo en esta USB — sin recrear la ISO.',
+    'ana.configInject':'Configurar e inyectar en esta USB →','ana.rootEmpty':'Raíz inaccesible o vacía.',
+    'verify.checking':'Verificando…','verify.ok':'✓ /autounattend.xml generado por esta app confirmado en la ISO','verify.unsigned':'⚠ autounattend.xml presente pero sin la firma de la app','verify.missing':'✗ autounattend.xml no encontrado — algo salió mal',
+    'export.saved':'autounattend.xml guardado en',
+  },
+  zh: {
+    'modal.usbHint':'点击一个 U 盘进行分析','modal.noUsb':'未检测到 U 盘。','modal.noUsbHint':'插入 U 盘后重试。',
+    'modal.reading':'正在读取 autounattend.xml…','modal.mount':'挂载','modal.mounting':'正在挂载…','modal.mountFail':'失败 — 重试','modal.err':'错误',
+    'ana.noXml':'— 无 autounattend.xml','ana.checkingRoot':'正在检查根目录内容…','ana.xmlInvalid':'⚠ XML 无效或无法读取',
+    'ana.byThisApp':'✓ 由本应用生成','ana.unknownOrigin':'⚠ 来源未知','ana.reveal':'显示','ana.hide':'隐藏','ana.noPass':'— 无密码',
+    'ana.identity':'身份','ana.tweaks':'调整','ana.user':'用户','ana.pass':'密码','ana.machine':'计算机','ana.tz':'时区',
+    'ana.injectUpdate':'更新此 U 盘上的配置 →','ana.injectReplace':'替换此 U 盘上的配置 →',
+    'ana.injectTitle':'注入更新的配置','ana.injectDesc':'用上面的设置填充向导并直接写入 U 盘 — 无需重建 ISO。',
+    'ana.rootFiles':'根目录文件','ana.xmlUnexpected':'⚠ 找到 XML 但名称异常 — 请联系我们。',
+    'ana.winUsbTitle':'检测到没有自动配置的 Windows U 盘','ana.winUsbDesc':'在向导中设置偏好并直接注入此 U 盘 — 无需重建 ISO。',
+    'ana.configInject':'配置并注入到此 U 盘 →','ana.rootEmpty':'根目录无法访问或为空。',
+    'verify.checking':'正在校验…','verify.ok':'✓ 已确认 ISO 中由本应用生成的 /autounattend.xml','verify.unsigned':'⚠ 存在 autounattend.xml 但没有本应用的签名','verify.missing':'✗ 未找到 autounattend.xml — 出现问题',
+    'export.saved':'autounattend.xml 已保存到',
+  },
+  hi: {
+    'modal.usbHint':'विश्लेषण के लिए किसी USB पर क्लिक करें','modal.noUsb':'कोई USB नहीं मिली।','modal.noUsbHint':'USB लगाएँ और फिर से प्रयास करें।',
+    'modal.reading':'autounattend.xml पढ़ी जा रही है…','modal.mount':'माउंट करें','modal.mounting':'माउंट हो रही है…','modal.mountFail':'विफल — फिर से प्रयास करें','modal.err':'त्रुटि',
+    'ana.noXml':'— कोई autounattend.xml नहीं','ana.checkingRoot':'रूट सामग्री जाँची जा रही है…','ana.xmlInvalid':'⚠ अमान्य या अपठनीय XML',
+    'ana.byThisApp':'✓ इस ऐप द्वारा बनाई गई','ana.unknownOrigin':'⚠ अज्ञात स्रोत','ana.reveal':'दिखाएँ','ana.hide':'छिपाएँ','ana.noPass':'— कोई पासवर्ड नहीं',
+    'ana.identity':'पहचान','ana.tweaks':'सेटिंग्स','ana.user':'उपयोगकर्ता','ana.pass':'पासवर्ड','ana.machine':'कंप्यूटर','ana.tz':'समय क्षेत्र',
+    'ana.injectUpdate':'इस USB पर कॉन्फ़िगरेशन अपडेट करें →','ana.injectReplace':'इस USB पर कॉन्फ़िगरेशन बदलें →',
+    'ana.injectTitle':'अपडेट किया गया कॉन्फ़िगरेशन इंजेक्ट करें','ana.injectDesc':'ऊपर की सेटिंग्स से विज़ार्ड भरता है और सीधे USB में लिखता है — ISO दोबारा बनाए बिना।',
+    'ana.rootFiles':'रूट में फ़ाइलें','ana.xmlUnexpected':'⚠ XML मिली पर अप्रत्याशित नाम के साथ — संपर्क करें।',
+    'ana.winUsbTitle':'बिना स्वचालित कॉन्फ़िगरेशन वाली Windows USB मिली','ana.winUsbDesc':'विज़ार्ड में प्राथमिकताएँ सेट करें और सीधे इस USB में इंजेक्ट करें — ISO दोबारा बनाए बिना।',
+    'ana.configInject':'कॉन्फ़िगर करें और इस USB में इंजेक्ट करें →','ana.rootEmpty':'रूट पहुँच से बाहर या खाली।',
+    'verify.checking':'सत्यापित हो रहा है…','verify.ok':'✓ ISO में इस ऐप द्वारा बनाई /autounattend.xml की पुष्टि हुई','verify.unsigned':'⚠ autounattend.xml मौजूद पर ऐप हस्ताक्षर नहीं','verify.missing':'✗ autounattend.xml नहीं मिली — कुछ गड़बड़ हुई',
+    'export.saved':'autounattend.xml यहाँ सहेजी गई',
+  },
+  ar: {
+    'modal.usbHint':'انقر على قرص USB لتحليله','modal.noUsb':'لم يتم اكتشاف أي USB.','modal.noUsbHint':'أدخل USB وحاول مجددًا.',
+    'modal.reading':'جارٍ قراءة autounattend.xml…','modal.mount':'تركيب','modal.mounting':'جارٍ التركيب…','modal.mountFail':'فشل — أعد المحاولة','modal.err':'خطأ',
+    'ana.noXml':'— لا يوجد autounattend.xml','ana.checkingRoot':'جارٍ فحص محتوى الجذر…','ana.xmlInvalid':'⚠ XML غير صالح أو غير قابل للقراءة',
+    'ana.byThisApp':'✓ تم إنشاؤه بواسطة هذا التطبيق','ana.unknownOrigin':'⚠ مصدر غير معروف','ana.reveal':'إظهار','ana.hide':'إخفاء','ana.noPass':'— بدون كلمة مرور',
+    'ana.identity':'الهوية','ana.tweaks':'الإعدادات','ana.user':'المستخدم','ana.pass':'كلمة المرور','ana.machine':'الكمبيوتر','ana.tz':'المنطقة الزمنية',
+    'ana.injectUpdate':'تحديث الإعداد على هذا USB ←','ana.injectReplace':'استبدال الإعداد على هذا USB ←',
+    'ana.injectTitle':'حقن الإعداد المُحدَّث','ana.injectDesc':'يملأ المعالج بالإعدادات أعلاه ويكتب مباشرة إلى USB — دون إعادة بناء ISO.',
+    'ana.rootFiles':'الملفات في الجذر','ana.xmlUnexpected':'⚠ تم العثور على XML لكن باسم غير متوقع — يرجى التواصل.',
+    'ana.winUsbTitle':'تم اكتشاف USB لنظام Windows دون إعداد تلقائي','ana.winUsbDesc':'اضبط تفضيلاتك في المعالج واحقن مباشرة إلى هذا USB — دون إعادة بناء ISO.',
+    'ana.configInject':'إعداد وحقن إلى هذا USB ←','ana.rootEmpty':'الجذر غير قابل للوصول أو فارغ.',
+    'verify.checking':'جارٍ التحقق…','verify.ok':'✓ تم تأكيد /autounattend.xml المُنشأ بواسطة هذا التطبيق على ISO','verify.unsigned':'⚠ autounattend.xml موجود لكن دون توقيع التطبيق','verify.missing':'✗ لم يتم العثور على autounattend.xml — حدث خطأ ما',
+    'export.saved':'تم حفظ autounattend.xml في',
+  },
+}
+Object.keys(I18N).forEach(l => Object.assign(I18N[l], I18N_MODAL[l] || {}))
+
+let CUR_LANG = 'pt'
+const RTL_LANGS = new Set(['ar'])
+
+// Translate a key: current lang → Portuguese fallback → the key itself.
+function t(key) {
+  return (I18N[CUR_LANG] && I18N[CUR_LANG][key]) || I18N.pt[key] || key
+}
+
+// Walk the DOM applying every data-i18n* attribute.
+function applyI18n() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const k = el.getAttribute('data-i18n'); if (I18N[CUR_LANG][k] || I18N.pt[k]) el.textContent = t(k)
+  })
+  document.querySelectorAll('[data-i18n-html]').forEach(el => {
+    const k = el.getAttribute('data-i18n-html'); el.innerHTML = t(k)
+  })
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+    el.placeholder = t(el.getAttribute('data-i18n-ph'))
+  })
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    el.title = t(el.getAttribute('data-i18n-title'))
+  })
+}
+
+function setLang(lang) {
+  if (!I18N[lang]) lang = 'pt'
+  CUR_LANG = lang
+  try { localStorage.setItem('pf-lang', lang) } catch {}
+  document.documentElement.lang = lang
+  document.documentElement.dir  = RTL_LANGS.has(lang) ? 'rtl' : 'ltr'
+  const sel = document.getElementById('lang-select'); if (sel) sel.value = lang
+  applyI18n()
+  if (typeof rebuildChecks === 'function') rebuildChecks()  // re-render translated check rows
+  if (typeof updateUI === 'function') updateUI()            // re-translate dynamic buttons
+}
+
+// ── Check dep badge ──────────────────────────────────────────
+if (window.api) {
+  window.api.checkDeps().then(d => {
+    const b = document.getElementById('dep-xorriso');
+    b.classList.add(d.xorriso ? 'ok' : 'err');
+  });
+}
+
+// ── Windows version → available editions ────────────────────
+const EDITIONS = {
+  '7':  [['HomePremium', 'Windows 7 Home Premium'], ['Pro', 'Windows 7 Professional'],
+         ['Ultimate', 'Windows 7 Ultimate'], ['Enterprise', 'Windows 7 Enterprise']],
+  '8':  [['Core', 'Windows 8.1'], ['Pro', 'Windows 8.1 Pro'], ['Enterprise', 'Windows 8.1 Enterprise']],
+  '10': [['Pro', 'Windows 10 Pro'], ['Home', 'Windows 10 Home'], ['HomeN', 'Windows 10 Home N'],
+         ['ProN', 'Windows 10 Pro N'], ['Education', 'Windows 10 Education'], ['Enterprise', 'Windows 10 Enterprise']],
+  '11': [['Pro', 'Windows 11 Pro'], ['Home', 'Windows 11 Home'], ['HomeN', 'Windows 11 Home N'],
+         ['ProN', 'Windows 11 Pro N'], ['Education', 'Windows 11 Education'], ['Enterprise', 'Windows 11 Enterprise']],
+}
+
+function refreshEditions() {
+  const ver = document.getElementById('f-winver').value
+  const sel = document.getElementById('f-edition')
+  const prev = sel.value
+  sel.innerHTML = ''
+  for (const [val, label] of EDITIONS[ver]) {
+    const opt = document.createElement('option')
+    opt.value = val; opt.textContent = label
+    sel.appendChild(opt)
+  }
+  // Keep the same edition if it exists in the new version (e.g. Pro is everywhere)
+  if ([...sel.options].some(o => o.value === prev)) sel.value = prev
+  // Win11 bypass row only makes sense for Windows 11
+  const bypassRow = document.getElementById('cb-win11Bypass')?.closest('.cr')
+  if (bypassRow) bypassRow.style.display = ver === '11' ? '' : 'none'
+}
+
+// Detect Windows version from ISO filename (build numbers + common naming)
+function detectWinVersion(filename) {
+  const f = filename.toLowerCase()
+  if (/win(dows)?[\s_-]*11|22000|22621|22631|26100|23h2|24h2|25h2/.test(f)) return '11'
+  if (/win(dows)?[\s_-]*10|19041|19042|19043|19044|19045|21h1|21h2|22h2/.test(f)) return '10'
+  if (/win(dows)?[\s_-]*8|9600|9200/.test(f)) return '8'
+  if (/win(dows)?[\s_-]*7|7601|7600/.test(f)) return '7'
+  return null
+}
+
+// ── Check definitions (labels come from i18n: check.<id>.name / .desc) ──
+const CHECKS = [
+  { id:'localAccount',       on:true  },
+  { id:'oobe',               on:true  },
+  { id:'bitlocker',          on:true  },
+  { id:'telemetry',          on:true  },
+  { id:'cortana',            on:true  },
+  { id:'defenderSamples',    on:true  },
+  { id:'noAutoUpdate',       on:false },
+  { id:'noConsumerFeatures', on:true  },
+  { id:'noActivityHistory',  on:false },
+  { id:'win11Bypass',        on:true  },
+];
+
+const checksCt = document.getElementById('checks');
+// Rebuilds the check rows in the current language, preserving each toggle's state.
+function rebuildChecks() {
+  const prev = {}
+  CHECKS.forEach(({ id, on }) => {
+    const cb = document.getElementById(`cb-${id}`)
+    prev[id] = cb ? cb.checked : on
+  })
+  checksCt.innerHTML = ''
+  CHECKS.forEach(({ id }) => {
+    const row = document.createElement('div')
+    row.className = 'cr'
+    row.innerHTML = `
+      <div class="cr-info">
+        <span class="cr-name">${t(`check.${id}.name`)}</span>
+        <span class="cr-desc">${t(`check.${id}.desc`)}</span>
+      </div>
+      <label class="tog" onclick="event.stopPropagation()">
+        <input type="checkbox" id="cb-${id}" ${prev[id] ? 'checked' : ''}>
+        <span class="tog-track"></span>
+      </label>`
+    row.addEventListener('click', () => {
+      const cb = document.getElementById(`cb-${id}`)
+      cb.checked = !cb.checked
+    })
+    checksCt.appendChild(row)
+  })
+  // Keep the Win11-only row hidden unless Windows 11 is selected
+  const ver = document.getElementById('f-winver')?.value
+  const bypassRow = document.getElementById('cb-win11Bypass')?.closest('.cr')
+  if (bypassRow) bypassRow.style.display = ver === '11' ? '' : 'none'
+}
+rebuildChecks();
+
+// ── State ────────────────────────────────────────────────────
+const st = { step: 0, iso: null, out: null, busy: false, injectTarget: null, mode: 'iso', pendriveDisk: null };
+
+// ── Step navigation ──────────────────────────────────────────
+function canAdvance() {
+  switch (st.step) {
+    case 0: return !!st.iso;
+    case 1: return !!document.getElementById('f-user').value.trim();
+    case 2: return true;
+    case 3:
+      if (st.injectTarget)       return !st.busy
+      if (st.mode === 'pendrive') return !!st.pendriveDisk && !!st.iso && !st.busy
+      return !!st.out && !st.busy
+    case 4: return true;
+    default: return false;
+  }
+}
+
+function updateUI() {
+  // Step items + lines
+  for (let i = 0; i < 5; i++) {
+    const si = document.getElementById(`si-${i}`);
+    si.classList.remove('active','done');
+    if (i === st.step) si.classList.add('active');
+    else if (i < st.step) si.classList.add('done');
+    const sc = si.querySelector('.step-circle');
+    sc.textContent = i < st.step ? '✓' : i + 1;
+  }
+  for (let i = 0; i < 4; i++) {
+    document.getElementById(`sl-${i}`).classList.toggle('done', i < st.step);
+  }
+  // Dots
+  for (let i = 0; i < 5; i++) {
+    const d = document.getElementById(`dot-${i}`);
+    d.classList.remove('active','done');
+    if (i === st.step) d.classList.add('active');
+    else if (i < st.step) d.classList.add('done');
+  }
+  // Buttons
+  const back = document.getElementById('btn-back');
+  const next = document.getElementById('btn-next');
+  if (st.step === 4) {
+    back.classList.add('hidden');
+    next.textContent = t('footer.close');
+    next.disabled = false;
+  } else {
+    back.classList.toggle('hidden', st.step === 0);
+    if (st.step === 3) {
+      next.textContent = st.injectTarget      ? t('footer.inject')
+                       : st.mode === 'pendrive' ? t('footer.createUsb')
+                       : t('footer.createIso')
+    } else {
+      next.textContent = t('footer.next');
+    }
+    next.disabled = !canAdvance();
+  }
+  // Sync mode visibility in step 3
+  const isoMode      = document.getElementById('s3-iso-mode')
+  const injectMode   = document.getElementById('s3-inject-mode')
+  const pendriveMode = document.getElementById('s3-pendrive-mode')
+  const segCtrl      = document.getElementById('s3-seg')
+  if (isoMode && injectMode) {
+    const inject     = !!st.injectTarget
+    const isPendrive = !inject && st.mode === 'pendrive'
+    isoMode.style.display      = (!inject && st.mode === 'iso') ? '' : 'none'
+    injectMode.style.display   = inject    ? '' : 'none'
+    if (pendriveMode) pendriveMode.style.display = isPendrive   ? '' : 'none'
+    if (segCtrl)      segCtrl.style.display      = inject       ? 'none' : ''
+    if (inject) document.getElementById('inject-target-path').textContent = st.injectTarget
+    // keep segment buttons in sync
+    document.getElementById('seg-iso')?.classList.toggle('active', st.mode === 'iso')
+    document.getElementById('seg-pendrive')?.classList.toggle('active', st.mode === 'pendrive')
+  }
+}
+
+function goTo(n, dir) {
+  const cur = document.getElementById(`step-${st.step}`);
+  cur.classList.remove('active','anim-fwd','anim-back');
+  const nxt = document.getElementById(`step-${n}`);
+  nxt.classList.add('active', dir === 'back' ? 'anim-back' : 'anim-fwd');
+  st.step = n;
+  document.getElementById('wiz-body').scrollTop = 0;
+  if (n === 3 && !st.out && st.iso) suggestOut(st.iso);
+  updateUI();
+  setTimeout(() => nxt.classList.remove('anim-fwd','anim-back'), 300);
+}
+
+document.getElementById('btn-back').addEventListener('click', () => {
+  if (st.step > 0) goTo(st.step - 1, 'back');
+});
+document.getElementById('btn-next').addEventListener('click', () => {
+  if (st.step === 4) { window.api && window.api.quitApp(); return; }
+  if (st.step < 3) goTo(st.step + 1, 'fwd');
+  else if (st.injectTarget)        startInject();
+  else if (st.mode === 'pendrive') startPendrive();
+  else                             startBuild();
+});
+document.getElementById('f-user').addEventListener('input', updateUI);
+document.getElementById('f-key').addEventListener('input', function() {
+  const pos = this.selectionStart;
+  const raw = this.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 25);
+  const fmt = raw.match(/.{1,5}/g)?.join('-') || '';
+  this.value = fmt;
+  // Restore cursor position adjusted for dashes
+  const dashes = (fmt.slice(0, pos + Math.floor(pos / 5)).match(/-/g) || []).length;
+  this.setSelectionRange(pos + dashes, pos + dashes);
+});
+
+// ── ISO picking ──────────────────────────────────────────────
+function setISO(p, size) {
+  st.iso = p;
+  const fname = p.split('/').pop()
+  // Auto-select the Windows version from the ISO filename (user can still override)
+  const detected = detectWinVersion(fname)
+  if (detected) {
+    document.getElementById('f-winver').value = detected
+    refreshEditions()
+  }
+  document.getElementById('iso-fname').textContent = fname;
+  document.getElementById('iso-meta').textContent = size ? fmtSize(size) : '';
+  document.getElementById('iso-loaded').classList.add('show');
+  document.getElementById('iso-warn').style.display = 'none';
+  document.getElementById('dz').style.display = 'none';
+  updateUI();
+  if (window.api) {
+    window.api.checkUnattend(p).then(({ found, ours }) => {
+      if (!found) return;
+      document.getElementById('iso-warn-msg').textContent = ours
+        ? t('iso.warnOurs')
+        : t('iso.warnUnknown');
+      document.getElementById('iso-warn').style.display = 'flex';
+    });
+  }
+}
+function fmtSize(b) {
+  return b > 1e9 ? (b/1e9).toFixed(1)+' GB' : (b/1e6).toFixed(0)+' MB';
+}
+const dz = document.getElementById('dz');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('over');
+  const f = e.dataTransfer.files[0];
+  if (f && f.path) setISO(f.path, f.size);
+});
+document.getElementById('iso-file').addEventListener('change', function() {
+  const f = this.files[0];
+  if (f && f.path) setISO(f.path, f.size);
+  this.value = '';
+});
+document.getElementById('dz-link').addEventListener('click', async e => {
+  e.stopPropagation();
+  if (!window.api) return;
+  const p = await window.api.openISO();
+  if (p) setISO(p, null);
+});
+document.getElementById('iso-rm').addEventListener('click', () => {
+  st.iso = null;
+  document.getElementById('iso-loaded').classList.remove('show');
+  document.getElementById('iso-warn').style.display = 'none';
+  document.getElementById('dz').style.display = '';
+  updateUI();
+});
+
+// ── Output path ──────────────────────────────────────────────
+function suggestOut(iso) {
+  const dir = iso.substring(0, iso.lastIndexOf('/') + 1);
+  const base = iso.split('/').pop().replace(/\.iso$/i, '');
+  st.out = `${dir}${base}-custom.iso`;
+  const el = document.getElementById('f-out');
+  el.value = st.out; el.classList.add('set');
+  updateUI();
+}
+document.getElementById('btn-clear-inject').addEventListener('click', () => {
+  st.injectTarget = null;
+  updateUI();
+});
+
+document.getElementById('btn-browse').addEventListener('click', async () => {
+  if (!window.api) return;
+  const name = st.iso ? st.iso.split('/').pop().replace(/\.iso$/i, '-custom.iso') : 'win10-custom.iso';
+  const p = await window.api.saveISO(name);
+  if (p) {
+    st.out = p;
+    const el = document.getElementById('f-out');
+    el.value = p; el.classList.add('set');
+    updateUI();
+  }
+});
+
+// ── Build config ─────────────────────────────────────────────
+function buildCfg() {
+  const checks = {};
+  CHECKS.forEach(({ id }) => { checks[id] = document.getElementById(`cb-${id}`).checked; });
+  const rawKey = document.getElementById('f-key').value.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+  const productKey = rawKey.length === 25
+    ? rawKey.match(/.{5}/g).join('-')
+    : (rawKey.length > 0 ? rawKey : null)
+  return {
+    isoPath: st.iso,
+    outputPath: st.out,
+    username: document.getElementById('f-user').value.trim() || 'User',
+    password: document.getElementById('f-pass').value,
+    hostname: document.getElementById('f-host').value.trim() || 'WIN10-PC',
+    timezone: document.getElementById('f-tz').value,
+    winVersion: document.getElementById('f-winver').value,
+    edition:  document.getElementById('f-edition').value,
+    productKey: productKey || null,
+    checks,
+  };
+}
+
+// ── Mini terminal toggle ──────────────────────────────────────
+function toggleLog() {
+  const wrap = document.getElementById('log-wrap')
+  const btn  = document.getElementById('log-toggle')
+  if (!wrap) return
+  const expanded = wrap.classList.toggle('expanded')
+  if (btn) btn.textContent = expanded ? t('s3.collapse') : t('s3.expand')
+}
+
+// ── Progress bar helpers ─────────────────────────────────────
+function updateProgress(pct, stage) {
+  const wrap  = document.getElementById('log-prog')
+  const fill  = document.getElementById('log-prog-fill')
+  const pctEl = document.getElementById('log-prog-pct')
+  const stg   = document.getElementById('log-prog-stage')
+  if (!wrap) return
+  wrap.classList.add('visible')
+  if (pct == null) {
+    fill.classList.add('indeterminate')
+    pctEl.textContent = '—'
+  } else {
+    fill.classList.remove('indeterminate')
+    fill.style.width = pct + '%'
+    pctEl.textContent = pct + '%'
+  }
+  // stage from progress events (e.g. 7z extraction) — only update if explicitly provided
+  if (stage != null) stg.textContent = stage
+}
+
+function resetProgress() {
+  const wrap  = document.getElementById('log-prog')
+  const fill  = document.getElementById('log-prog-fill')
+  const pctEl = document.getElementById('log-prog-pct')
+  const stg   = document.getElementById('log-prog-stage')
+  if (!wrap) return
+  wrap.classList.remove('visible')
+  fill.classList.remove('indeterminate')
+  fill.style.width = '0%'
+  pctEl.textContent = '0%'
+  stg.textContent   = t('s3.waiting')
+}
+
+// ── Log helpers ──────────────────────────────────────────────
+function appendLog({ msg, type, progress, stage }) {
+  if (type === 'progress') {
+    // Pure progress event (e.g. 7z percentage) — update bar + stage if carried
+    updateProgress(progress, stage)
+    return
+  }
+  // Log line: update bar percentage only (no stage param — stage comes from message text)
+  if (progress !== undefined) updateProgress(progress)
+  // Sync stage label with log message — keeps bar and log body always in step
+  // Skip 'dim' lines (raw tool output noise) so stage stays meaningful
+  if (type !== 'dim' && msg) {
+    const stg = document.getElementById('log-prog-stage')
+    if (stg) stg.textContent = msg.replace(/^[✓✗⚠]\s+/, '').trim()
+  }
+  const lb = document.getElementById('log-body')
+  const line = document.createElement('div')
+  const pre = type === 'ok' ? '✓  ' : type === 'err' ? '✗  ' : type === 'warn' ? '⚠  ' : '   '
+  line.className = `le ${type}`
+  line.textContent = pre + msg
+  lb.appendChild(line)
+  requestAnimationFrame(() => requestAnimationFrame(() => line.classList.add('vis')))
+  lb.scrollTop = lb.scrollHeight
+}
+
+// ── Inject directly to USB ───────────────────────────────────
+async function startInject() {
+  if (!window.api || st.busy || !st.injectTarget) return
+  st.busy = true
+  updateUI()
+  const result = document.getElementById('result')
+  result.className = 'result'
+  document.getElementById('log-body').innerHTML = ''
+  resetProgress()
+  document.getElementById('log-wrap').classList.add('open')
+  document.getElementById('log-spin').classList.add('on')
+
+  const addLog = (msg, type = 'info') => appendLog({ msg, type })
+  try {
+    addLog('Gerando autounattend.xml...')
+    const xml = await window.api.generateXML(buildCfg())
+    addLog('autounattend.xml gerado', 'ok')
+    const hasKey = xml.includes('<ProductKey>')
+    addLog(hasKey ? '⚠ XML contém <ProductKey>' : '✓ Sem <ProductKey> (correto)', hasKey ? 'warn' : 'ok')
+    addLog(`Gravando em ${st.injectTarget}...`)
+    const res = await window.api.injectXML(st.injectTarget, xml)
+    document.getElementById('log-spin').classList.remove('on')
+    st.busy = false
+    if (res.success) {
+      if (res.writtenTo?.length > 1) {
+        addLog(`Múltiplos arquivos encontrados e sobrescritos: ${res.writtenTo.join(', ')}`, 'warn')
+      }
+      addLog(`Arquivo gravado: ${res.path}`, 'ok')
+      addLog('Concluído!', 'ok')
+      document.getElementById('s4-fname').textContent = res.path
+      document.getElementById('s4-vr').className = 's4-vr'
+      goTo(4, 'fwd')
+    } else {
+      addLog(`Erro: ${res.error}`, 'err')
+      result.className = 'result err'
+      result.innerHTML = `<span>✗</span> ${t('result.writeFail')}`
+      updateUI()
+    }
+  } catch (err) {
+    document.getElementById('log-spin').classList.remove('on')
+    st.busy = false
+    addLog(`Erro inesperado: ${err.message}`, 'err')
+    updateUI()
+  }
+}
+
+// ── Start build ──────────────────────────────────────────────
+// ── Pendrive creation mode ───────────────────────────────────
+function setMode(mode) {
+  st.mode = mode
+  if (mode === 'pendrive') loadPendriveDisks()
+  updateUI()
+}
+
+async function loadPendriveDisks() {
+  const list = document.getElementById('pendrive-disk-list')
+  if (!list) return
+  list.innerHTML = `<p class="empty-msg">${t('common.loading')}</p>`
+  const disks = window.api ? await window.api.listUSBDisks().catch(() => []) : []
+  if (!disks.length) {
+    list.innerHTML = `<p class="empty-msg">${t('usb.noDisks')}<br>${t('usb.noDisksHint')}</p>`
+    return
+  }
+  list.innerHTML = ''
+  for (const disk of disks) {
+    const card = document.createElement('div')
+    card.className = `disk-card${st.pendriveDisk === disk.device ? ' active' : ''}`
+    card.innerHTML = `
+      <span class="dc-icon">💾</span>
+      <div class="dc-info">
+        <div class="dc-name">${esc(disk.label || disk.device)}</div>
+        <div class="dc-dev">${esc(disk.device)}</div>
+      </div>
+      <span class="dc-size">${esc(disk.size)}</span>`
+    card.addEventListener('click', () => {
+      st.pendriveDisk = disk.device
+      document.querySelectorAll('.disk-card').forEach(c => c.classList.remove('active'))
+      card.classList.add('active')
+      const warn = document.getElementById('warn-del')
+      if (warn) warn.style.display = ''
+      updateUI()
+    })
+    list.appendChild(card)
+  }
+}
+
+async function startPendrive() {
+  if (!window.api || st.busy || !st.pendriveDisk || !st.iso) return
+  st.busy = true
+  updateUI()
+  const result = document.getElementById('result')
+  result.className = 'result'
+  document.getElementById('log-body').innerHTML = ''
+  resetProgress()
+  document.getElementById('log-wrap').classList.add('open')
+  document.getElementById('log-spin').classList.add('on')
+
+  const xml = await window.api.generateXML(buildCfg())
+
+  window.api.removeAll()
+  window.api.onLog(appendLog)
+  window.api.onDone(({ success, pendrivePath }) => {
+    st.busy = false
+    document.getElementById('log-spin').classList.remove('on')
+    if (success) {
+      document.getElementById('s4-fname').textContent = pendrivePath || st.pendriveDisk
+      document.getElementById('s4-title').textContent = t('s4.usbTitle')
+      document.getElementById('s4-sub').textContent   = t('s4.usbSub')
+      document.getElementById('s4-vr').className      = 's4-vr'
+      goTo(4, 'fwd')
+    } else {
+      result.className = 'result err'
+      result.innerHTML = `<span>✗</span> ${t('result.usbFail')}`
+      result.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      updateUI()
+    }
+  })
+
+  const volumeLabel = document.getElementById('f-vol-label')?.value.trim() || null
+  const winVersion  = document.getElementById('f-winver').value
+  window.api.createBootable({ device: st.pendriveDisk, isoPath: st.iso, xmlContent: xml, volumeLabel, winVersion })
+}
+
+function startBuild() {
+  if (!window.api || st.busy) return;
+  st.busy = true;
+  updateUI();
+  const result = document.getElementById('result');
+  result.className = 'result';
+  document.getElementById('log-body').innerHTML = '';
+  resetProgress();
+  document.getElementById('log-wrap').classList.add('open');
+  document.getElementById('log-spin').classList.add('on');
+
+  window.api.removeAll();
+  window.api.onLog(appendLog);
+  window.api.onDone(({ success }) => {
+    st.busy = false;
+    document.getElementById('log-spin').classList.remove('on');
+    if (success) {
+      document.getElementById('s4-fname').textContent = st.out;
+      document.getElementById('s4-vr').className = 's4-vr';
+      goTo(4, 'fwd');
+    } else {
+      result.className = 'result err';
+      result.innerHTML = `<span>✗</span> ${t('result.isoFail')}`;
+      result.scrollIntoView({ behavior:'smooth', block:'nearest' });
+      updateUI();
+    }
+  });
+
+  window.api.processISO(buildCfg());
+}
+
+// ── Export XML ───────────────────────────────────────────────
+document.getElementById('btn-xml').addEventListener('click', async () => {
+  if (!window.api) return;
+  const r = await window.api.saveXMLFile(buildCfg());
+  if (r.success) {
+    const result = document.getElementById('result');
+    result.className = 'result ok';
+    result.innerHTML = `<span>✓</span> ${t('export.saved')} ${r.path}`;
+  }
+});
+
+// ── USB Analysis Modal ───────────────────────────────────────
+// Tweak IDs shown in the analysis grid — labels reuse the translated check names.
+const TWEAK_IDS = CHECKS.map(c => c.id)
+
+function parseUnattendXML(xmlStr) {
+  try {
+    const parser = new DOMParser()
+    const doc    = parser.parseFromString(xmlStr, 'application/xml')
+    if (doc.querySelector('parseerror')) return { error: true }
+    const q  = (sel) => doc.querySelector(sel)?.textContent?.trim() || ''
+    const qq = (sel) => [...doc.querySelectorAll(sel)].map(e => e.textContent)
+    const isOurs = xmlStr.includes('win10-iso-builder:v1')
+    const cmds   = qq('SynchronousCommand CommandLine')
+    const has    = (str) => cmds.some(c => c.includes(str))
+    return {
+      isOurs,
+      username: q('LocalAccount Name'),
+      password: q('LocalAccount Password Value'),
+      hostname: q('ComputerName'),
+      timezone: q('TimeZone'),
+      checks: {
+        localAccount:       !!(q('LocalAccount Name')),
+        oobe:               !!(q('OOBE')),
+        bitlocker:          has('PreventDeviceEncryption'),
+        telemetry:          has('AllowTelemetry'),
+        cortana:            has('AllowCortana'),
+        defenderSamples:    has('SubmitSamplesConsent'),
+        noAutoUpdate:       has('AUOptions'),
+        noConsumerFeatures: has('DisableWindowsConsumerFeatures'),
+        noActivityHistory:  has('EnableActivityFeed'),
+        win11Bypass:        xmlStr.includes('LabConfig'),
+      },
+    }
+  } catch { return { error: true } }
+}
+
+let modalCfg = null  // currently parsed config for import
+
+function renderDriveAnalysis(xmlStr, driveName, dev) {
+  const body = document.getElementById('modal-usb-body')
+  const imp  = document.getElementById('modal-usb-import')
+  modalCfg   = null
+  imp.disabled = true
+
+  if (!xmlStr) {
+    body.insertAdjacentHTML('beforeend', `
+      <div class="ana-section" id="no-xml-section">
+        <div class="ana-badge dim">${t('ana.noXml')}</div>
+        <p style="font-size:12px;color:var(--muted);margin-top:4px;" id="no-xml-msg">
+          ${t('ana.checkingRoot')}
+        </p>
+      </div>`)
+    return  // root listing filled async below — caller handles this
+  }
+
+  const cfg = parseUnattendXML(xmlStr)
+  if (cfg.error) {
+    body.insertAdjacentHTML('beforeend', `
+      <div class="ana-section">
+        <div class="ana-badge warn">${t('ana.xmlInvalid')}</div>
+      </div>`)
+    return
+  }
+
+  modalCfg = cfg
+  imp.disabled = false
+
+  const badgeHTML = cfg.isOurs
+    ? `<span class="ana-badge ok">${t('ana.byThisApp')}</span>`
+    : `<span class="ana-badge warn">${t('ana.unknownOrigin')}</span>`
+
+  const pw = cfg.password
+    ? `<span class="ana-pw"><span id="pw-mask">••••••</span><button onclick="togglePW()">${t('ana.reveal')}</button></span>`
+    : `<span class="ana-val" style="color:var(--muted)">${t('ana.noPass')}</span>`
+
+  const rows = [
+    [t('ana.user'),    cfg.username ? `<span class="ana-val">${esc(cfg.username)}</span>` : `<span style="color:var(--muted)">—</span>`],
+    [t('ana.pass'),    pw],
+    [t('ana.machine'), cfg.hostname ? `<span class="ana-val">${esc(cfg.hostname)}</span>` : `<span style="color:var(--muted)">—</span>`],
+    [t('ana.tz'),      cfg.timezone ? `<span class="ana-val">${esc(cfg.timezone)}</span>` : `<span style="color:var(--muted)">—</span>`],
+  ].map(([k, v]) => `<div class="ana-row"><span class="ana-key">${k}</span>${v}</div>`).join('')
+
+  const tweakItems = TWEAK_IDS.map(id => {
+    const on = cfg.checks[id]
+    return `<div class="tw-item"><span class="tw-dot ${on ? 'on' : 'off'}"></span>${t(`check.${id}.name`)}</div>`
+  }).join('')
+
+  const injectLabel = cfg.isOurs ? t('ana.injectUpdate') : t('ana.injectReplace')
+
+  const injectSection = dev?.mountpoint ? `
+    <div style="margin-top:12px;padding:12px;background:#F0FDF6;border:1px solid #A7F3D0;border-radius:8px;">
+      <p style="font-size:12.5px;font-weight:600;color:#065F46;margin-bottom:6px;">
+        ${t('ana.injectTitle')}
+      </p>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">
+        ${t('ana.injectDesc')}
+      </p>
+      <button class="btn-inject-modal" id="btn-do-inject">${injectLabel}</button>
+    </div>` : ''
+
+  body.insertAdjacentHTML('beforeend', `
+    <div class="ana-section">
+      ${badgeHTML}
+      <h4>${t('ana.identity')}</h4>
+      ${rows}
+      <h4 style="margin-top:14px">${t('ana.tweaks')}</h4>
+      <div class="tweak-grid">${tweakItems}</div>
+      ${injectSection}
+    </div>`)
+
+  if (dev?.mountpoint) {
+    document.getElementById('btn-do-inject')?.addEventListener('click', () => {
+      importFromUSB(dev.mountpoint)  // pre-fills wizard + sets injectTarget + navigates
+    })
+  }
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+}
+
+function togglePW() {
+  const el = document.getElementById('pw-mask')
+  const btn = el?.nextElementSibling
+  if (!el || !modalCfg) return
+  if (el.textContent === '••••••') {
+    el.textContent = esc(modalCfg.password)
+    if (btn) btn.textContent = t('ana.hide')
+  } else {
+    el.textContent = '••••••'
+    if (btn) btn.textContent = t('ana.reveal')
+  }
+}
+
+async function selectDrive(dev, cardEl) {
+  // Mark card active
+  document.querySelectorAll('.drive-card').forEach(c => c.classList.remove('active'))
+  cardEl.classList.add('active')
+
+  // Clear previous analysis
+  const body = document.getElementById('modal-usb-body')
+  body.querySelector('.ana-section')?.remove()
+  document.getElementById('modal-usb-import').disabled = true
+  modalCfg = null
+
+  // Loading indicator
+  const loading = document.createElement('p')
+  loading.className = 'empty-msg'; loading.textContent = t('modal.reading')
+  body.appendChild(loading)
+
+  let xmlStr = null
+  if (dev.mountpoint && window.api) {
+    xmlStr = await window.api.readUSBXML(dev.mountpoint)
+  }
+  // Raw-device ISO 9660 fallback (works only if user has read permission)
+  if (!xmlStr && window.api) {
+    xmlStr = await window.api.readDeviceXML(dev.device).catch(() => null)
+  }
+
+  loading.remove()
+  renderDriveAnalysis(xmlStr, dev.label || dev.device, dev)
+
+  // If no XML found and we have a mount point, list root contents for diagnosis
+  if (!xmlStr && dev.mountpoint && window.api) {
+    const msg = document.getElementById('no-xml-msg')
+    if (msg) {
+      const entries = await window.api.listRootDir(dev.mountpoint).catch(() => [])
+      const isWinUSB = entries.some(e => /^setup\.exe$/i.test(e)) &&
+                       entries.some(e => /^sources$/i.test(e))
+      if (entries.length) {
+        const hasXml = entries.some(e => /\.xml$/i.test(e))
+        msg.innerHTML = `${t('ana.rootFiles')} (${entries.length}):<br>
+          <span style="font-family:var(--mono);font-size:11px;color:var(--text);line-height:1.9">
+            ${entries.map(e => esc(e)).join('&nbsp;&nbsp;')}
+          </span>
+          ${hasXml ? `<br><span style="color:var(--warn)">${t('ana.xmlUnexpected')}</span>` : ''}`
+        if (isWinUSB) {
+          const section = document.getElementById('no-xml-section')
+          if (section) {
+            section.insertAdjacentHTML('beforeend', `
+              <div style="margin-top:12px;padding:12px;background:#F0FDF6;border:1px solid #A7F3D0;border-radius:8px;">
+                <p style="font-size:12.5px;font-weight:600;color:#065F46;margin-bottom:8px;">
+                  ${t('ana.winUsbTitle')}
+                </p>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">
+                  ${t('ana.winUsbDesc')}
+                </p>
+                <button class="btn-inject-modal" id="btn-do-inject">
+                  ${t('ana.configInject')}
+                </button>
+              </div>`)
+            document.getElementById('btn-do-inject').addEventListener('click', () => {
+              st.injectTarget = dev.mountpoint
+              closeUSBModal()
+              goTo(st.step > 0 ? st.step : 1, 'fwd')
+              updateUI()
+            })
+          }
+        }
+      } else {
+        msg.textContent = t('ana.rootEmpty')
+      }
+    }
+  }
+}
+
+function buildDriveCard(dev, card) {
+  const mounted = !!dev.mountpoint
+  card.className = `drive-card${mounted ? '' : ''}`  // always clickable now
+  const label = dev.label || dev.device.split('/').pop()
+  const mp    = dev.mountpoint ? `<br><span style="color:var(--ok)">${dev.mountpoint}</span>` : ''
+  const right = mounted
+    ? `<span class="drive-pill dim">${dev.fstype || 'usb'}</span>`
+    : `<button class="btn-mount">${t('modal.mount')}</button>`
+  card.innerHTML = `
+    <span class="drive-ico">💾</span>
+    <div class="drive-info">
+      <div class="drive-name">${esc(label)}</div>
+      <div class="drive-meta">${dev.device} · ${dev.size}${mp}</div>
+    </div>
+    ${right}`
+
+  if (mounted) {
+    card.addEventListener('click', () => selectDrive(dev, card))
+  } else {
+    const btn = card.querySelector('.btn-mount')
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation()
+      btn.disabled = true
+      btn.textContent = t('modal.mounting')
+      if (!window.api) { btn.textContent = t('modal.err'); return }
+      const res = await window.api.mountUSB(dev.device)
+      if (res.success) {
+        dev.mountpoint = res.mountpoint
+        buildDriveCard(dev, card)  // rebuild card as mounted
+        selectDrive(dev, card)     // auto-analyze
+      } else {
+        btn.disabled = false
+        btn.textContent = t('modal.mountFail')
+        btn.title = res.error
+      }
+    })
+  }
+}
+
+async function openUSBModal() {
+  const modal = document.getElementById('modal-usb')
+  const body  = document.getElementById('modal-usb-body')
+  document.getElementById('modal-usb-import').disabled = true
+  modalCfg = null
+
+  body.innerHTML = `<p class="empty-msg">${t('modal.scanning')}</p>`
+  modal.classList.add('open')
+
+  if (!window.api) { body.innerHTML = `<p class="empty-msg">${t('common.apiUnavailable')}</p>`; return }
+
+  const drives = await window.api.listUSB()
+  body.innerHTML = ''
+
+  if (!drives.length) {
+    body.innerHTML = `<p class="empty-msg">${t('modal.noUsb')}<br>${t('modal.noUsbHint')}</p>`
+    return
+  }
+
+  const list = document.createElement('div')
+  list.className = 'drive-list'
+
+  for (const dev of drives) {
+    const card = document.createElement('div')
+    buildDriveCard(dev, card)
+    list.appendChild(card)
+  }
+
+  body.appendChild(list)
+  body.insertAdjacentHTML('beforeend',
+    `<p id="modal-hint" style="font-size:12px;color:var(--muted);text-align:center;margin-top:4px">${t('modal.usbHint')}</p>`
+  )
+}
+
+function closeUSBModal() {
+  document.getElementById('modal-usb').classList.remove('open')
+}
+
+// injectTarget: when set, switches to inject mode after import (skips ISO selection)
+function importFromUSB(injectTarget = null) {
+  const c = modalCfg
+  if (c) {
+    if (c.username) document.getElementById('f-user').value = c.username
+    if (c.password) document.getElementById('f-pass').value = c.password
+    if (c.hostname) document.getElementById('f-host').value = c.hostname
+    if (c.timezone) {
+      const sel = document.getElementById('f-tz')
+      for (const opt of sel.options) {
+        if (opt.value === c.timezone) { sel.value = c.timezone; break }
+      }
+    }
+    CHECKS.forEach(({ id }) => {
+      const cb = document.getElementById(`cb-${id}`)
+      if (cb && c.checks[id] !== undefined) cb.checked = c.checks[id]
+    })
+  }
+  if (injectTarget) st.injectTarget = injectTarget
+  closeUSBModal()
+  // Inject mode: always go to identity step (no ISO needed)
+  // Import mode: go to identity if ISO loaded, else step 0
+  goTo(injectTarget ? 1 : (st.iso ? 1 : 0), 'fwd')
+  updateUI()
+}
+
+document.getElementById('btn-scan-usb').addEventListener('click', openUSBModal)
+document.getElementById('modal-usb-close').addEventListener('click', closeUSBModal)
+document.getElementById('modal-usb-cancel').addEventListener('click', closeUSBModal)
+document.getElementById('modal-usb-import').addEventListener('click', () => importFromUSB())
+document.getElementById('modal-usb').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeUSBModal()
+})
+
+// ── Step 4 actions ───────────────────────────────────────────
+function resetAll() {
+  st.iso = null; st.out = null; st.busy = false; st.injectTarget = null; st.mode = 'iso'; st.pendriveDisk = null;
+  document.getElementById('iso-loaded').classList.remove('show');
+  document.getElementById('iso-warn').style.display = 'none';
+  document.getElementById('dz').style.display = '';
+  const fo = document.getElementById('f-out');
+  fo.value = ''; fo.classList.remove('set');
+  document.getElementById('result').className = 'result';
+  document.getElementById('log-body').innerHTML = '';
+  const lw = document.getElementById('log-wrap')
+  lw.classList.remove('open', 'expanded')
+  const lt = document.getElementById('log-toggle')
+  if (lt) lt.textContent = t('s3.expand')
+  resetProgress();
+  document.getElementById('s4-vr').className = 's4-vr';
+  document.getElementById('s4-title').textContent = t('s4.title')
+  document.getElementById('s4-sub').textContent   = t('s4.sub')
+  const warnDel = document.getElementById('warn-del'); if (warnDel) warnDel.style.display = 'none'
+  const volLbl = document.getElementById('f-vol-label'); if (volLbl) volLbl.value = ''
+  goTo(0, 'back');
+}
+
+document.getElementById('s4-copy').addEventListener('click', () => {
+  if (st.out) navigator.clipboard.writeText(st.out).catch(() => {});
+  const btn = document.getElementById('s4-copy');
+  btn.textContent = t('s4.copied');
+  setTimeout(() => { btn.textContent = t('s4.copy'); }, 1500);
+});
+
+document.getElementById('s4-folder').addEventListener('click', () => {
+  if (window.api && st.out) window.api.openFolder(st.out);
+});
+
+document.getElementById('s4-new').addEventListener('click', resetAll);
+
+document.getElementById('s4-verify').addEventListener('click', async () => {
+  const vr = document.getElementById('s4-vr');
+  vr.className = 's4-vr checking';
+  vr.textContent = t('verify.checking');
+  if (!window.api || !st.out) {
+    vr.className = 's4-vr err'; vr.textContent = '✗ ' + t('common.apiUnavailable'); return;
+  }
+  const { found, ours } = await window.api.checkUnattend(st.out);
+  if (found && ours) {
+    vr.className = 's4-vr ok';
+    vr.textContent = t('verify.ok');
+  } else if (found && !ours) {
+    vr.className = 's4-vr checking';
+    vr.textContent = t('verify.unsigned');
+  } else {
+    vr.className = 's4-vr err';
+    vr.textContent = t('verify.missing');
+  }
+});
+
+// Init
+refreshEditions();
+// Restore saved language (or fall back to the browser's, else Portuguese)
+let initLang = 'pt'
+try {
+  const saved = localStorage.getItem('pf-lang')
+  const nav = (navigator.language || 'pt').slice(0, 2)
+  initLang = saved || (I18N[nav] ? nav : 'pt')
+} catch {}
+setLang(initLang);
+updateUI();
+</script>
+</body>
+</html>

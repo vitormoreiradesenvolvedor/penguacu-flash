@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Bundled binaries — fetched/compiled by `npm run prepare-bins`, not committed
+bin/
+
+# OS / editor cruft
+.DS_Store
+*.swp
+.vscode/
+.idea/
