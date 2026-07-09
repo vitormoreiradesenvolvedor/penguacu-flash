@@ -1,6 +1,6 @@
 {
   "name": "win10-iso-builder",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Crie pendrives bootáveis do Windows 7, 8.1, 10 e 11",
   "main": "main.js",
   "scripts": {
