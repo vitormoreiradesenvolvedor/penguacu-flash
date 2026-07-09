@@ -313,6 +313,8 @@ input[type=file] { display:none; }
 .inst-rm { color:var(--muted); cursor:pointer; font-size:17px; line-height:1; padding:0 2px; flex-shrink:0; transition:color .1s; }
 .inst-rm:hover { color:var(--err); }
 .opt-note { font-size:12px; color:var(--muted); margin-top:12px; line-height:1.55; }
+.ext-link { color:var(--accent); cursor:pointer; text-decoration:underline; text-decoration-color:rgba(79,107,248,.35); }
+.ext-link:hover { text-decoration-color:var(--accent); }
 .opt-warn { display:none; margin-top:10px; padding:9px 12px; border-radius:7px; background:#FFFBEB; border:1px solid #FCD34D; font-size:12px; color:#92400E; }
 
 /* ── Debloat step ───────────────────────────────────── */
@@ -704,7 +706,8 @@ input[type=file] { display:none; }
       </div>
       <div class="opt-warn" id="app-invalid" data-i18n="sApps.onlyExeMsi">⚠ Apenas arquivos .exe e .msi são aceitos.</div>
       <div class="inst-list" id="inst-list"></div>
-      <p class="opt-note" data-i18n="sApps.note">Instaladores .msi rodam silenciosamente por padrão (/qn). Para .exe, informe o argumento silencioso do instalador (ex: /S, /VERYSILENT) — sem ele, o instalador abrirá janelas no primeiro login.</p>
+      <p class="opt-note" data-i18n="sApps.note">Instaladores .msi são instalados automaticamente, sem janelas. Instaladores .exe variam: cada programa tem seu próprio argumento de instalação silenciosa (ex.: /S, /VERYSILENT, /quiet) — informe-o no campo de argumentos para instalar sem janelas. Sem ele, o instalador abrirá normalmente no primeiro login e bastará avançar as telas.</p>
+      <p class="opt-note"><a class="ext-link" id="silent-args-link" data-i18n="sApps.learnMore">Consultar o argumento silencioso do seu programa →</a></p>
     </div>
 
     <!-- Step 4: Remove Windows apps (optional) -->
@@ -757,7 +760,7 @@ input[type=file] { display:none; }
       <!-- Inject mode (pendrive direto) -->
       <div id="s3-inject-mode" style="display:none">
         <h2 class="step-title" data-i18n="s3.injectTitle">Injetar no pendrive</h2>
-        <p class="step-sub" data-i18n="s3.injectSub">O autounattend.xml será gravado diretamente na raiz do pendrive</p>
+        <p class="step-sub" data-i18n="s3.injectSub">Sua configuração personalizada será gravada diretamente no pendrive</p>
         <div class="inject-target-box">
           <span class="it-icon">💾</span>
           <div class="it-info">
@@ -801,16 +804,15 @@ input[type=file] { display:none; }
                     stroke-linecap="round" stroke-linejoin="round" fill="none"/>
         </svg>
         <h2 class="step-title" id="s4-title" data-i18n="s4.title">ISO criada com sucesso!</h2>
-        <p class="step-sub" id="s4-sub" data-i18n="s4.sub">Pronta para gravar no pendrive com balenaEtcher ou Ventoy</p>
+        <p class="step-sub" id="s4-sub" data-i18n="s4.sub">Pronto! Recomendamos gravar no pendrive com o próprio Penguaçu-Flash, mas você também pode usar outro programa</p>
       </div>
       <div class="s4-path" id="s4-path">
         <span id="s4-fname">—</span>
         <button id="s4-copy" title="Copiar caminho" data-i18n-title="s4.copyTitle" data-i18n="s4.copy">Copiar</button>
       </div>
       <div class="s4-btns">
-        <button id="s4-verify" data-i18n="s4.verify">✓ Verificar XML</button>
         <button id="s4-folder" data-i18n="s4.folder">Abrir pasta</button>
-        <button class="s4-primary" id="s4-new" data-i18n="s4.new">Nova ISO</button>
+        <button class="s4-primary" id="s4-new" data-i18n="s4.new">Voltar ao início</button>
       </div>
       <div class="s4-vr" id="s4-vr"></div>
     </div>
@@ -854,7 +856,8 @@ const I18N = {
     'step.apps':'Apps','step.remove':'Remover',
     'sApps.title':'Programas para instalar (opcional)','sApps.sub':'Instaladores .exe ou .msi são copiados para a mídia e executados no primeiro login',
     'sApps.drop':'Arraste instaladores aqui','sApps.click':'clique para selecionar','sApps.argsPh':'args ex: /S',
-    'sApps.note':'Instaladores .msi rodam silenciosamente por padrão (/qn). Para .exe, informe o argumento silencioso do instalador (ex: /S, /VERYSILENT) — sem ele, o instalador abrirá janelas no primeiro login.',
+    'sApps.note':'Instaladores .msi são instalados automaticamente, sem janelas. Instaladores .exe variam: cada programa tem seu próprio argumento de instalação silenciosa (ex.: /S, /VERYSILENT, /quiet) — informe-o no campo de argumentos para instalar sem janelas. Sem ele, o instalador abrirá normalmente no primeiro login e bastará avançar as telas.',
+    'sApps.learnMore':'Consultar o argumento silencioso do seu programa →',
     'sApps.onlyExeMsi':'⚠ Apenas arquivos .exe e .msi são aceitos.',
     'sRem.title':'Remover apps do Windows (opcional)','sRem.sub':'Os apps selecionados serão desinstalados automaticamente no primeiro login',
     'sRem.selAll':'Selecionar todos','sRem.selNone':'Limpar seleção','sRem.unsupported':'⚠ Disponível apenas para Windows 10 e 11.',
@@ -863,13 +866,13 @@ const I18N = {
     's3.usbTitle':'Criar pendrive bootável','s3.usbSub':'O pendrive será formatado, o Windows copiado e o autounattend.xml injetado',
     's3.volLabel':'Nome do pendrive','s3.refresh':'↻ Atualizar lista',
     's3.warnDel':'⚠ Todos os dados do pendrive selecionado serão <strong>apagados permanentemente</strong>.',
-    's3.injectTitle':'Injetar no pendrive','s3.injectSub':'O autounattend.xml será gravado diretamente na raiz do pendrive',
+    's3.injectTitle':'Injetar no pendrive','s3.injectSub':'Sua configuração personalizada será gravada diretamente no pendrive',
     's3.dest':'Destino','s3.cancelInject':'Cancelar injeção direta','s3.output':'Saída','s3.expand':'▼ expandir','s3.collapse':'▲ recolher',
     's3.waiting':'Aguardando…','s3.xmlNote':'Só precisa do arquivo?','s3.xmlBtn':'Exportar só o autounattend.xml',
     'common.loading':'Carregando...','common.apiUnavailable':'API indisponível',
-    's4.title':'ISO criada com sucesso!','s4.sub':'Pronta para gravar no pendrive com balenaEtcher ou Ventoy',
+    's4.title':'ISO criada com sucesso!','s4.sub':'Pronto! Recomendamos gravar no pendrive com o próprio Penguaçu-Flash, mas você também pode usar outro programa',
     's4.usbTitle':'Pendrive criado com sucesso!','s4.usbSub':'Pronto para instalar o Windows com sua configuração personalizada',
-    's4.copy':'Copiar','s4.copied':'Copiado!','s4.copyTitle':'Copiar caminho','s4.verify':'✓ Verificar XML','s4.folder':'Abrir pasta','s4.new':'Nova ISO',
+    's4.copy':'Copiar','s4.copied':'Copiado!','s4.copyTitle':'Copiar caminho','s4.verify':'✓ Verificar XML','s4.folder':'Abrir pasta','s4.new':'Voltar ao início',
     'footer.back':'← Voltar','footer.next':'Próximo →','footer.close':'Fechar','footer.createIso':'Criar ISO','footer.createUsb':'Criar pendrive','footer.inject':'Injetar no pendrive',
     'iso.warnOurs':'Já foi customizada por este app — a configuração será atualizada',
     'iso.warnUnknown':'Contém autounattend.xml de origem desconhecida — será substituído',
@@ -878,7 +881,7 @@ const I18N = {
     'check.localAccount.name':'Conta local','check.localAccount.desc':'Cria o usuário sem precisar de conta Microsoft.',
     'check.oobe.name':'Pular telas de boas-vindas','check.oobe.desc':'Remove o assistente OOBE, telas de privacidade e Cortana inicial.',
     'check.bitlocker.name':'Desativar BitLocker automático','check.bitlocker.desc':'Impede criptografia silenciosa de dispositivo em hardware compatível.',
-    'check.telemetry.name':'Desativar telemetria','check.telemetry.desc':'Bloqueia envio de dados de diagnóstico (AllowTelemetry = 0).',
+    'check.telemetry.name':'Desativar telemetria','check.telemetry.desc':'Bloqueia o envio de dados de diagnóstico para a Microsoft.',
     'check.cortana.name':'Desativar Cortana','check.cortana.desc':'Remove a integração Cortana via política de grupo.',
     'check.defenderSamples.name':'Defender: sem envio de amostras','check.defenderSamples.desc':'Bloqueia submissão automática de arquivos ao Defender.',
     'check.noAutoUpdate.name':'Update: só notificar','check.noAutoUpdate.desc':'Windows Update avisa mas não instala automaticamente.',
@@ -901,7 +904,8 @@ const I18N = {
     'step.apps':'Apps','step.remove':'Remove',
     'sApps.title':'Programs to install (optional)','sApps.sub':'.exe or .msi installers are copied to the media and run at first sign-in',
     'sApps.drop':'Drop installers here','sApps.click':'click to select','sApps.argsPh':'args e.g. /S',
-    'sApps.note':'.msi installers run silently by default (/qn). For .exe, enter the installer\'s silent switch (e.g. /S, /VERYSILENT) — without it the installer will open windows at first sign-in.',
+    'sApps.note':'.msi installers run automatically with no windows. .exe installers vary: each program has its own silent-install switch (e.g. /S, /VERYSILENT, /quiet) — enter it in the args field to install silently. Without it, the installer simply opens at first sign-in and you can click through it.',
+    'sApps.learnMore':'Look up your program\'s silent switch →',
     'sApps.onlyExeMsi':'⚠ Only .exe and .msi files are accepted.',
     'sRem.title':'Remove Windows apps (optional)','sRem.sub':'Selected apps are uninstalled automatically at first sign-in',
     'sRem.selAll':'Select all','sRem.selNone':'Clear selection','sRem.unsupported':'⚠ Available only for Windows 10 and 11.',
@@ -910,13 +914,13 @@ const I18N = {
     's3.usbTitle':'Create bootable USB','s3.usbSub':'The USB will be formatted, Windows copied, and autounattend.xml injected',
     's3.volLabel':'USB name','s3.refresh':'↻ Refresh list',
     's3.warnDel':'⚠ All data on the selected USB will be <strong>permanently erased</strong>.',
-    's3.injectTitle':'Inject into USB','s3.injectSub':'autounattend.xml will be written directly to the USB root',
+    's3.injectTitle':'Inject into USB','s3.injectSub':'Your custom configuration will be written directly to the USB',
     's3.dest':'Target','s3.cancelInject':'Cancel direct injection','s3.output':'Output','s3.expand':'▼ expand','s3.collapse':'▲ collapse',
     's3.waiting':'Waiting…','s3.xmlNote':'Just need the file?','s3.xmlBtn':'Export autounattend.xml only',
     'common.loading':'Loading...','common.apiUnavailable':'API unavailable',
-    's4.title':'ISO created successfully!','s4.sub':'Ready to flash to a USB with balenaEtcher or Ventoy',
+    's4.title':'ISO created successfully!','s4.sub':'Done! We recommend flashing it to a USB with Penguaçu-Flash itself, but other tools work too',
     's4.usbTitle':'USB created successfully!','s4.usbSub':'Ready to install Windows with your custom configuration',
-    's4.copy':'Copy','s4.copied':'Copied!','s4.copyTitle':'Copy path','s4.verify':'✓ Verify XML','s4.folder':'Open folder','s4.new':'New ISO',
+    's4.copy':'Copy','s4.copied':'Copied!','s4.copyTitle':'Copy path','s4.verify':'✓ Verify XML','s4.folder':'Open folder','s4.new':'Back to start',
     'footer.back':'← Back','footer.next':'Next →','footer.close':'Close','footer.createIso':'Create ISO','footer.createUsb':'Create USB','footer.inject':'Inject into USB',
     'iso.warnOurs':'Already customized by this app — the configuration will be updated',
     'iso.warnUnknown':'Contains an autounattend.xml of unknown origin — it will be replaced',
@@ -925,7 +929,7 @@ const I18N = {
     'check.localAccount.name':'Local account','check.localAccount.desc':'Creates the user without needing a Microsoft account.',
     'check.oobe.name':'Skip welcome screens','check.oobe.desc':'Removes the OOBE wizard, privacy screens and initial Cortana.',
     'check.bitlocker.name':'Disable automatic BitLocker','check.bitlocker.desc':'Prevents silent device encryption on compatible hardware.',
-    'check.telemetry.name':'Disable telemetry','check.telemetry.desc':'Blocks diagnostic data collection (AllowTelemetry = 0).',
+    'check.telemetry.name':'Disable telemetry','check.telemetry.desc':'Blocks sending diagnostic data to Microsoft.',
     'check.cortana.name':'Disable Cortana','check.cortana.desc':'Removes Cortana integration via group policy.',
     'check.defenderSamples.name':'Defender: no sample submission','check.defenderSamples.desc':'Blocks automatic file submission to Defender.',
     'check.noAutoUpdate.name':'Update: notify only','check.noAutoUpdate.desc':'Windows Update notifies but does not install automatically.',
@@ -948,7 +952,8 @@ const I18N = {
     'step.apps':'Apps','step.remove':'Quitar',
     'sApps.title':'Programas para instalar (opcional)','sApps.sub':'Los instaladores .exe o .msi se copian al medio y se ejecutan en el primer inicio de sesión',
     'sApps.drop':'Arrastra instaladores aquí','sApps.click':'haz clic para seleccionar','sApps.argsPh':'args ej: /S',
-    'sApps.note':'Los .msi se instalan en silencio por defecto (/qn). Para .exe, indica el parámetro silencioso del instalador (ej: /S, /VERYSILENT) — sin él, el instalador abrirá ventanas en el primer inicio.',
+    'sApps.note':'Los instaladores .msi se instalan automáticamente, sin ventanas. Los .exe varían: cada programa tiene su propio parámetro de instalación silenciosa (ej.: /S, /VERYSILENT, /quiet) — indícalo en el campo de argumentos para instalar sin ventanas. Sin él, el instalador se abrirá normalmente en el primer inicio de sesión.',
+    'sApps.learnMore':'Consultar el parámetro silencioso de tu programa →',
     'sApps.onlyExeMsi':'⚠ Solo se aceptan archivos .exe y .msi.',
     'sRem.title':'Quitar apps de Windows (opcional)','sRem.sub':'Las apps seleccionadas se desinstalan automáticamente en el primer inicio de sesión',
     'sRem.selAll':'Seleccionar todo','sRem.selNone':'Limpiar selección','sRem.unsupported':'⚠ Disponible solo para Windows 10 y 11.',
@@ -957,13 +962,13 @@ const I18N = {
     's3.usbTitle':'Crear USB de arranque','s3.usbSub':'La USB se formateará, se copiará Windows y se inyectará autounattend.xml',
     's3.volLabel':'Nombre de la USB','s3.refresh':'↻ Actualizar lista',
     's3.warnDel':'⚠ Todos los datos de la USB seleccionada se <strong>borrarán permanentemente</strong>.',
-    's3.injectTitle':'Inyectar en la USB','s3.injectSub':'autounattend.xml se escribirá directamente en la raíz de la USB',
+    's3.injectTitle':'Inyectar en la USB','s3.injectSub':'Tu configuración personalizada se escribirá directamente en la USB',
     's3.dest':'Destino','s3.cancelInject':'Cancelar inyección directa','s3.output':'Salida','s3.expand':'▼ expandir','s3.collapse':'▲ contraer',
     's3.waiting':'Esperando…','s3.xmlNote':'¿Solo necesitas el archivo?','s3.xmlBtn':'Exportar solo autounattend.xml',
     'common.loading':'Cargando...','common.apiUnavailable':'API no disponible',
-    's4.title':'¡ISO creada con éxito!','s4.sub':'Lista para grabar en una USB con balenaEtcher o Ventoy',
+    's4.title':'¡ISO creada con éxito!','s4.sub':'¡Listo! Recomendamos grabarla en una USB con el propio Penguaçu-Flash, aunque puedes usar otra herramienta',
     's4.usbTitle':'¡USB creada con éxito!','s4.usbSub':'Lista para instalar Windows con tu configuración personalizada',
-    's4.copy':'Copiar','s4.copied':'¡Copiado!','s4.copyTitle':'Copiar ruta','s4.verify':'✓ Verificar XML','s4.folder':'Abrir carpeta','s4.new':'Nueva ISO',
+    's4.copy':'Copiar','s4.copied':'¡Copiado!','s4.copyTitle':'Copiar ruta','s4.verify':'✓ Verificar XML','s4.folder':'Abrir carpeta','s4.new':'Volver al inicio',
     'footer.back':'← Atrás','footer.next':'Siguiente →','footer.close':'Cerrar','footer.createIso':'Crear ISO','footer.createUsb':'Crear USB','footer.inject':'Inyectar en la USB',
     'iso.warnOurs':'Ya fue personalizada por esta app — la configuración se actualizará',
     'iso.warnUnknown':'Contiene un autounattend.xml de origen desconocido — se reemplazará',
@@ -972,7 +977,7 @@ const I18N = {
     'check.localAccount.name':'Cuenta local','check.localAccount.desc':'Crea el usuario sin necesitar una cuenta de Microsoft.',
     'check.oobe.name':'Omitir pantallas de bienvenida','check.oobe.desc':'Quita el asistente OOBE, las pantallas de privacidad y el Cortana inicial.',
     'check.bitlocker.name':'Desactivar BitLocker automático','check.bitlocker.desc':'Impide el cifrado silencioso del dispositivo en hardware compatible.',
-    'check.telemetry.name':'Desactivar telemetría','check.telemetry.desc':'Bloquea el envío de datos de diagnóstico (AllowTelemetry = 0).',
+    'check.telemetry.name':'Desactivar telemetría','check.telemetry.desc':'Bloquea el envío de datos de diagnóstico a Microsoft.',
     'check.cortana.name':'Desactivar Cortana','check.cortana.desc':'Quita la integración de Cortana mediante directiva de grupo.',
     'check.defenderSamples.name':'Defender: sin envío de muestras','check.defenderSamples.desc':'Bloquea el envío automático de archivos a Defender.',
     'check.noAutoUpdate.name':'Update: solo notificar','check.noAutoUpdate.desc':'Windows Update avisa pero no instala automáticamente.',
@@ -995,7 +1000,8 @@ const I18N = {
     'step.apps':'应用','step.remove':'移除',
     'sApps.title':'要安装的程序（可选）','sApps.sub':'.exe 或 .msi 安装包会复制到介质中，并在首次登录时运行',
     'sApps.drop':'将安装包拖到这里','sApps.click':'点击选择','sApps.argsPh':'参数 如 /S',
-    'sApps.note':'.msi 默认静默安装（/qn）。对于 .exe，请填写安装包的静默参数（如 /S、/VERYSILENT）— 否则首次登录时会弹出安装窗口。',
+    'sApps.note':'.msi 安装包会自动静默安装。.exe 安装包各不相同：每个程序都有自己的静默安装参数（如 /S、/VERYSILENT、/quiet）——在参数栏填写即可无窗口安装。不填写时，安装程序会在首次登录时正常打开，逐步点击完成即可。',
+    'sApps.learnMore':'查询程序的静默安装参数 →',
     'sApps.onlyExeMsi':'⚠ 仅接受 .exe 和 .msi 文件。',
     'sRem.title':'移除 Windows 应用（可选）','sRem.sub':'所选应用将在首次登录时自动卸载',
     'sRem.selAll':'全选','sRem.selNone':'清除选择','sRem.unsupported':'⚠ 仅适用于 Windows 10 和 11。',
@@ -1004,13 +1010,13 @@ const I18N = {
     's3.usbTitle':'创建可启动 U 盘','s3.usbSub':'U 盘将被格式化，复制 Windows 并注入 autounattend.xml',
     's3.volLabel':'U 盘名称','s3.refresh':'↻ 刷新列表',
     's3.warnDel':'⚠ 所选 U 盘上的所有数据将被<strong>永久擦除</strong>。',
-    's3.injectTitle':'注入到 U 盘','s3.injectSub':'autounattend.xml 将直接写入 U 盘根目录',
+    's3.injectTitle':'注入到 U 盘','s3.injectSub':'你的自定义配置将直接写入 U 盘',
     's3.dest':'目标','s3.cancelInject':'取消直接注入','s3.output':'输出','s3.expand':'▼ 展开','s3.collapse':'▲ 收起',
     's3.waiting':'等待中…','s3.xmlNote':'只需要文件？','s3.xmlBtn':'仅导出 autounattend.xml',
     'common.loading':'加载中...','common.apiUnavailable':'API 不可用',
-    's4.title':'ISO 创建成功！','s4.sub':'可用 balenaEtcher 或 Ventoy 写入 U 盘',
+    's4.title':'ISO 创建成功！','s4.sub':'完成！推荐用 Penguaçu-Flash 本身写入 U 盘，也可以使用其他工具',
     's4.usbTitle':'U 盘创建成功！','s4.usbSub':'可使用你的自定义配置安装 Windows',
-    's4.copy':'复制','s4.copied':'已复制！','s4.copyTitle':'复制路径','s4.verify':'✓ 校验 XML','s4.folder':'打开文件夹','s4.new':'新建 ISO',
+    's4.copy':'复制','s4.copied':'已复制！','s4.copyTitle':'复制路径','s4.verify':'✓ 校验 XML','s4.folder':'打开文件夹','s4.new':'返回开始',
     'footer.back':'← 返回','footer.next':'下一步 →','footer.close':'关闭','footer.createIso':'创建 ISO','footer.createUsb':'创建 U 盘','footer.inject':'注入到 U 盘',
     'iso.warnOurs':'已由本应用定制 — 配置将被更新',
     'iso.warnUnknown':'包含来源未知的 autounattend.xml — 将被替换',
@@ -1019,7 +1025,7 @@ const I18N = {
     'check.localAccount.name':'本地账户','check.localAccount.desc':'无需 Microsoft 账户即可创建用户。',
     'check.oobe.name':'跳过欢迎屏幕','check.oobe.desc':'移除 OOBE 向导、隐私屏幕和初始 Cortana。',
     'check.bitlocker.name':'禁用自动 BitLocker','check.bitlocker.desc':'防止在兼容硬件上静默加密设备。',
-    'check.telemetry.name':'禁用遥测','check.telemetry.desc':'阻止诊断数据收集（AllowTelemetry = 0）。',
+    'check.telemetry.name':'禁用遥测','check.telemetry.desc':'阻止向 Microsoft 发送诊断数据。',
     'check.cortana.name':'禁用 Cortana','check.cortana.desc':'通过组策略移除 Cortana 集成。',
     'check.defenderSamples.name':'Defender：不提交样本','check.defenderSamples.desc':'阻止自动向 Defender 提交文件。',
     'check.noAutoUpdate.name':'更新：仅通知','check.noAutoUpdate.desc':'Windows 更新仅通知，不自动安装。',
@@ -1042,7 +1048,8 @@ const I18N = {
     'step.apps':'ऐप्स','step.remove':'हटाएँ',
     'sApps.title':'इंस्टॉल करने के प्रोग्राम (वैकल्पिक)','sApps.sub':'.exe या .msi इंस्टॉलर मीडिया में कॉपी होते हैं और पहले साइन-इन पर चलते हैं',
     'sApps.drop':'इंस्टॉलर यहाँ छोड़ें','sApps.click':'चुनने के लिए क्लिक करें','sApps.argsPh':'आर्ग्स जैसे /S',
-    'sApps.note':'.msi डिफ़ॉल्ट रूप से साइलेंट इंस्टॉल होते हैं (/qn)। .exe के लिए इंस्टॉलर का साइलेंट स्विच दें (जैसे /S, /VERYSILENT) — इसके बिना पहले साइन-इन पर इंस्टॉलर विंडो खुलेंगी।',
+    'sApps.note':'.msi इंस्टॉलर अपने आप, बिना विंडो के इंस्टॉल होते हैं। .exe इंस्टॉलर अलग-अलग होते हैं: हर प्रोग्राम का अपना साइलेंट-इंस्टॉल आर्ग्युमेंट होता है (जैसे /S, /VERYSILENT, /quiet) — इसे आर्ग्स फ़ील्ड में भरें। इसके बिना इंस्टॉलर पहले साइन-इन पर सामान्य रूप से खुलेगा।',
+    'sApps.learnMore':'अपने प्रोग्राम का साइलेंट आर्ग्युमेंट देखें →',
     'sApps.onlyExeMsi':'⚠ केवल .exe और .msi फ़ाइलें स्वीकार्य हैं।',
     'sRem.title':'Windows ऐप्स हटाएँ (वैकल्पिक)','sRem.sub':'चुने गए ऐप्स पहले साइन-इन पर स्वतः अनइंस्टॉल हो जाएँगे',
     'sRem.selAll':'सभी चुनें','sRem.selNone':'चयन हटाएँ','sRem.unsupported':'⚠ केवल Windows 10 और 11 के लिए उपलब्ध।',
@@ -1051,13 +1058,13 @@ const I18N = {
     's3.usbTitle':'बूटेबल USB बनाएँ','s3.usbSub':'USB फ़ॉर्मेट होगी, Windows कॉपी होगा और autounattend.xml इंजेक्ट होगी',
     's3.volLabel':'USB का नाम','s3.refresh':'↻ सूची ताज़ा करें',
     's3.warnDel':'⚠ चयनित USB का सारा डेटा <strong>स्थायी रूप से मिटा दिया जाएगा</strong>।',
-    's3.injectTitle':'USB में इंजेक्ट करें','s3.injectSub':'autounattend.xml सीधे USB रूट में लिखी जाएगी',
+    's3.injectTitle':'USB में इंजेक्ट करें','s3.injectSub':'आपकी कस्टम कॉन्फ़िगरेशन सीधे USB में लिखी जाएगी',
     's3.dest':'लक्ष्य','s3.cancelInject':'सीधी इंजेक्शन रद्द करें','s3.output':'आउटपुट','s3.expand':'▼ विस्तार','s3.collapse':'▲ संक्षेप',
     's3.waiting':'प्रतीक्षा में…','s3.xmlNote':'सिर्फ़ फ़ाइल चाहिए?','s3.xmlBtn':'केवल autounattend.xml निर्यात करें',
     'common.loading':'लोड हो रहा है...','common.apiUnavailable':'API उपलब्ध नहीं',
-    's4.title':'ISO सफलतापूर्वक बनी!','s4.sub':'balenaEtcher या Ventoy से USB में लिखने के लिए तैयार',
+    's4.title':'ISO सफलतापूर्वक बनी!','s4.sub':'तैयार! हम Penguaçu-Flash से ही USB में लिखने की सलाह देते हैं, पर आप अन्य टूल भी उपयोग कर सकते हैं',
     's4.usbTitle':'USB सफलतापूर्वक बनी!','s4.usbSub':'आपकी कस्टम कॉन्फ़िगरेशन के साथ Windows इंस्टॉल करने के लिए तैयार',
-    's4.copy':'कॉपी करें','s4.copied':'कॉपी हो गया!','s4.copyTitle':'पथ कॉपी करें','s4.verify':'✓ XML सत्यापित करें','s4.folder':'फ़ोल्डर खोलें','s4.new':'नई ISO',
+    's4.copy':'कॉपी करें','s4.copied':'कॉपी हो गया!','s4.copyTitle':'पथ कॉपी करें','s4.verify':'✓ XML सत्यापित करें','s4.folder':'फ़ोल्डर खोलें','s4.new':'शुरुआत पर लौटें',
     'footer.back':'← वापस','footer.next':'आगे →','footer.close':'बंद करें','footer.createIso':'ISO बनाएँ','footer.createUsb':'USB बनाएँ','footer.inject':'USB में इंजेक्ट करें',
     'iso.warnOurs':'इस ऐप द्वारा पहले ही कस्टमाइज़ की गई — कॉन्फ़िगरेशन अपडेट होगी',
     'iso.warnUnknown':'अज्ञात स्रोत की autounattend.xml मौजूद — इसे बदल दिया जाएगा',
@@ -1066,7 +1073,7 @@ const I18N = {
     'check.localAccount.name':'लोकल खाता','check.localAccount.desc':'Microsoft खाते के बिना उपयोगकर्ता बनाता है।',
     'check.oobe.name':'स्वागत स्क्रीन छोड़ें','check.oobe.desc':'OOBE विज़ार्ड, गोपनीयता स्क्रीन और प्रारंभिक Cortana हटाता है।',
     'check.bitlocker.name':'स्वचालित BitLocker बंद करें','check.bitlocker.desc':'संगत हार्डवेयर पर मौन डिवाइस एन्क्रिप्शन रोकता है।',
-    'check.telemetry.name':'टेलीमेट्री बंद करें','check.telemetry.desc':'नैदानिक डेटा संग्रह रोकता है (AllowTelemetry = 0)।',
+    'check.telemetry.name':'टेलीमेट्री बंद करें','check.telemetry.desc':'Microsoft को नैदानिक डेटा भेजना रोकता है।',
     'check.cortana.name':'Cortana बंद करें','check.cortana.desc':'ग्रुप पॉलिसी के ज़रिए Cortana एकीकरण हटाता है।',
     'check.defenderSamples.name':'Defender: नमूने न भेजें','check.defenderSamples.desc':'Defender को स्वचालित फ़ाइल सबमिशन रोकता है।',
     'check.noAutoUpdate.name':'अपडेट: केवल सूचना','check.noAutoUpdate.desc':'Windows Update सूचित करता है पर स्वचालित इंस्टॉल नहीं करता।',
@@ -1089,7 +1096,8 @@ const I18N = {
     'step.apps':'تطبيقات','step.remove':'إزالة',
     'sApps.title':'برامج للتثبيت (اختياري)','sApps.sub':'تُنسخ ملفات التثبيت ‎.exe أو ‎.msi إلى الوسائط وتُشغَّل عند أول تسجيل دخول',
     'sApps.drop':'أفلت ملفات التثبيت هنا','sApps.click':'انقر للاختيار','sApps.argsPh':'وسائط مثل ‎/S',
-    'sApps.note':'تُثبَّت ملفات ‎.msi بصمت افتراضيًا (‎/qn). لملفات ‎.exe أدخل وسيطة التثبيت الصامت (مثل ‎/S أو ‎/VERYSILENT) — وبدونها ستُفتح نوافذ المثبّت عند أول تسجيل دخول.',
+    'sApps.note':'تُثبَّت ملفات ‎.msi تلقائيًا دون نوافذ. أما ملفات ‎.exe فتختلف: لكل برنامج وسيطة تثبيت صامت خاصة به (مثل ‎/S أو ‎/VERYSILENT أو ‎/quiet) — أدخلها في حقل الوسائط للتثبيت دون نوافذ. وبدونها سيُفتح المثبّت بشكل عادي عند أول تسجيل دخول.',
+    'sApps.learnMore':'ابحث عن وسيطة التثبيت الصامت لبرنامجك ←',
     'sApps.onlyExeMsi':'⚠ تُقبل ملفات ‎.exe و‎.msi فقط.',
     'sRem.title':'إزالة تطبيقات Windows (اختياري)','sRem.sub':'تُزال التطبيقات المحددة تلقائيًا عند أول تسجيل دخول',
     'sRem.selAll':'تحديد الكل','sRem.selNone':'مسح التحديد','sRem.unsupported':'⚠ متاح فقط لـ Windows 10 و11.',
@@ -1098,13 +1106,13 @@ const I18N = {
     's3.usbTitle':'إنشاء USB إقلاعي','s3.usbSub':'سيُهيَّأ USB وسيُنسخ Windows وسيُحقن autounattend.xml',
     's3.volLabel':'اسم USB','s3.refresh':'↻ تحديث القائمة',
     's3.warnDel':'⚠ سيتم <strong>محو جميع البيانات نهائيًا</strong> على USB المحدد.',
-    's3.injectTitle':'الحقن في USB','s3.injectSub':'سيُكتب autounattend.xml مباشرة في جذر USB',
+    's3.injectTitle':'الحقن في USB','s3.injectSub':'سيُكتب إعدادك المخصص مباشرة إلى USB',
     's3.dest':'الوجهة','s3.cancelInject':'إلغاء الحقن المباشر','s3.output':'المُخرَجات','s3.expand':'▼ توسيع','s3.collapse':'▲ طي',
     's3.waiting':'في الانتظار…','s3.xmlNote':'تحتاج الملف فقط؟','s3.xmlBtn':'تصدير autounattend.xml فقط',
     'common.loading':'جارٍ التحميل...','common.apiUnavailable':'الواجهة البرمجية غير متاحة',
-    's4.title':'تم إنشاء ISO بنجاح!','s4.sub':'جاهز للكتابة على USB باستخدام balenaEtcher أو Ventoy',
+    's4.title':'تم إنشاء ISO بنجاح!','s4.sub':'جاهز! ننصح بالكتابة إلى USB عبر Penguaçu-Flash نفسه، ويمكنك استخدام أدوات أخرى أيضًا',
     's4.usbTitle':'تم إنشاء USB بنجاح!','s4.usbSub':'جاهز لتثبيت Windows بإعداداتك المخصصة',
-    's4.copy':'نسخ','s4.copied':'تم النسخ!','s4.copyTitle':'نسخ المسار','s4.verify':'✓ التحقق من XML','s4.folder':'فتح المجلد','s4.new':'ISO جديد',
+    's4.copy':'نسخ','s4.copied':'تم النسخ!','s4.copyTitle':'نسخ المسار','s4.verify':'✓ التحقق من XML','s4.folder':'فتح المجلد','s4.new':'العودة إلى البداية',
     'footer.back':'← رجوع','footer.next':'التالي →','footer.close':'إغلاق','footer.createIso':'إنشاء ISO','footer.createUsb':'إنشاء USB','footer.inject':'الحقن في USB',
     'iso.warnOurs':'سبق تخصيصه بواسطة هذا التطبيق — سيتم تحديث الإعدادات',
     'iso.warnUnknown':'يحتوي على autounattend.xml من مصدر غير معروف — سيتم استبداله',
@@ -1113,7 +1121,7 @@ const I18N = {
     'check.localAccount.name':'حساب محلي','check.localAccount.desc':'ينشئ المستخدم دون الحاجة إلى حساب Microsoft.',
     'check.oobe.name':'تخطي شاشات الترحيب','check.oobe.desc':'يزيل معالج OOBE وشاشات الخصوصية وCortana الأولي.',
     'check.bitlocker.name':'تعطيل BitLocker التلقائي','check.bitlocker.desc':'يمنع التشفير الصامت للجهاز على الأجهزة المتوافقة.',
-    'check.telemetry.name':'تعطيل القياس عن بُعد','check.telemetry.desc':'يمنع جمع بيانات التشخيص (AllowTelemetry = 0).',
+    'check.telemetry.name':'تعطيل القياس عن بُعد','check.telemetry.desc':'يمنع إرسال بيانات التشخيص إلى Microsoft.',
     'check.cortana.name':'تعطيل Cortana','check.cortana.desc':'يزيل تكامل Cortana عبر نهج المجموعة.',
     'check.defenderSamples.name':'Defender: بدون إرسال عينات','check.defenderSamples.desc':'يمنع الإرسال التلقائي للملفات إلى Defender.',
     'check.noAutoUpdate.name':'التحديث: إشعار فقط','check.noAutoUpdate.desc':'يُشعر Windows Update دون التثبيت تلقائيًا.',
@@ -1412,6 +1420,11 @@ appDz.addEventListener('click', async () => {
   if (!window.api?.openInstallers) return
   const files = await window.api.openInstallers()   // [{ path, size }]
   if (files?.length) addInstallers(files)
+})
+
+// Per-program silent-install switches reference (opens in the system browser)
+document.getElementById('silent-args-link')?.addEventListener('click', () => {
+  window.api?.openExternal?.('https://silentinstallhq.com/')
 })
 
 // ── Step 4 (Remover): built-in Windows apps to debloat ──────
@@ -2370,7 +2383,9 @@ document.getElementById('s4-folder').addEventListener('click', () => {
 
 document.getElementById('s4-new').addEventListener('click', resetAll);
 
-document.getElementById('s4-verify').addEventListener('click', async () => {
+// XML verification kept for power users — the button was removed from the
+// final screen, so this only wires up if the element is ever restored.
+document.getElementById('s4-verify')?.addEventListener('click', async () => {
   const vr = document.getElementById('s4-vr');
   vr.className = 's4-vr checking';
   vr.textContent = t('verify.checking');

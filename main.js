@@ -639,6 +639,12 @@ ipcMain.handle('shell:openFolder', (_, filePath) => {
   shell.showItemInFolder(filePath)
 })
 
+// Open a link in the system browser — https only, so the renderer can never
+// escalate this into launching arbitrary local programs.
+ipcMain.handle('shell:openExternal', (_, url) => {
+  if (/^https:\/\//i.test(String(url))) shell.openExternal(String(url))
+})
+
 ipcMain.handle('app:quit', () => {
   app.quit()
 })
