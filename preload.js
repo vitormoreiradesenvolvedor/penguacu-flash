@@ -2,6 +2,7 @@ const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('api', {
   openISO:      ()       => ipcRenderer.invoke('dialog:openISO'),
+  openInstallers: ()     => ipcRenderer.invoke('dialog:openInstallers'),
   saveISO:      (name)   => ipcRenderer.invoke('dialog:saveISO', name),
   checkDeps:    ()       => ipcRenderer.invoke('check:deps'),
   generateXML:  (cfg)    => ipcRenderer.invoke('xml:generate', cfg),
@@ -23,5 +24,5 @@ contextBridge.exposeInMainWorld('api', {
   readDeviceXML:  (dev)    => ipcRenderer.invoke('usb:readXMLDevice', dev),
   mountUSB:       (dev)    => ipcRenderer.invoke('usb:mount', dev),
   listRootDir:    (mp)     => ipcRenderer.invoke('usb:listRoot', mp),
-  injectXML:      (mp, x)  => ipcRenderer.invoke('usb:injectXML', mp, x),
+  injectXML:      (mp, x, inst) => ipcRenderer.invoke('usb:injectXML', mp, x, inst),
 })

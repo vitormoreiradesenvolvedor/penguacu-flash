@@ -289,7 +289,39 @@ input[type=file] { display:none; }
   border-radius:6px; cursor:pointer; white-space:nowrap; flex-shrink:0;
   transition:background .15s;
 }
-.btn-scan:hover { background:rgba(79,107,248,.14); }
+.btn-scan:hover:not(:disabled) { background:rgba(79,107,248,.14); }
+.btn-scan:disabled { opacity:.4; cursor:not-allowed; }
+
+/* ── Installer list (step Apps) ─────────────────────── */
+.dz.dz-sm { padding:22px 16px; }
+.inst-list { display:flex; flex-direction:column; gap:7px; margin-top:12px; }
+.inst-item {
+  display:flex; align-items:center; gap:10px; padding:9px 12px;
+  background:var(--card); border:1px solid var(--border); border-radius:8px;
+  box-shadow:var(--shadow);
+}
+.inst-ico  { font-size:17px; flex-shrink:0; }
+.inst-name { flex:1; min-width:0; font-family:var(--mono); font-size:12px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.inst-size { font-size:11.5px; color:var(--muted); flex-shrink:0; }
+.inst-args {
+  width:150px; padding:5px 8px; flex-shrink:0;
+  font-family:var(--mono); font-size:11px;
+  border:1px solid var(--border); border-radius:5px; outline:none;
+  transition:border-color .15s;
+}
+.inst-args:focus { border-color:var(--accent); }
+.inst-rm { color:var(--muted); cursor:pointer; font-size:17px; line-height:1; padding:0 2px; flex-shrink:0; transition:color .1s; }
+.inst-rm:hover { color:var(--err); }
+.opt-note { font-size:12px; color:var(--muted); margin-top:12px; line-height:1.55; }
+.opt-warn { display:none; margin-top:10px; padding:9px 12px; border-radius:7px; background:#FFFBEB; border:1px solid #FCD34D; font-size:12px; color:#92400E; }
+
+/* ── Debloat step ───────────────────────────────────── */
+.sel-links { display:flex; gap:14px; margin-bottom:10px; }
+.sel-links button {
+  background:none; border:none; color:var(--accent); font-size:12px; cursor:pointer;
+  padding:0; text-decoration:underline; text-decoration-color:rgba(79,107,248,.3);
+}
+.cr-desc.mono { font-family:var(--mono); font-size:11px; }
 .hdr-right { margin-left:auto; display:flex; align-items:center; gap:10px; }
 .lang-wrap { position:relative; }
 .lang-wrap select {
@@ -558,9 +590,13 @@ input[type=file] { display:none; }
     <div class="step-line" id="sl-1"></div>
     <div class="step-item" id="si-2"><div class="step-circle">3</div><span class="step-label" data-i18n="step.tweaks">Tweaks</span></div>
     <div class="step-line" id="sl-2"></div>
-    <div class="step-item" id="si-3"><div class="step-circle">4</div><span class="step-label" data-i18n="step.create">Criar</span></div>
+    <div class="step-item" id="si-3"><div class="step-circle">4</div><span class="step-label" data-i18n="step.apps">Apps</span></div>
     <div class="step-line" id="sl-3"></div>
-    <div class="step-item" id="si-4"><div class="step-circle">5</div><span class="step-label" data-i18n="step.done">Pronto</span></div>
+    <div class="step-item" id="si-4"><div class="step-circle">5</div><span class="step-label" data-i18n="step.remove">Remover</span></div>
+    <div class="step-line" id="sl-4"></div>
+    <div class="step-item" id="si-5"><div class="step-circle">6</div><span class="step-label" data-i18n="step.create">Criar</span></div>
+    <div class="step-line" id="sl-5"></div>
+    <div class="step-item" id="si-6"><div class="step-circle">7</div><span class="step-label" data-i18n="step.done">Pronto</span></div>
   </nav>
 
   <!-- Step content -->
@@ -653,8 +689,38 @@ input[type=file] { display:none; }
       <div class="checks" id="checks"></div>
     </div>
 
-    <!-- Step 3: Build -->
+    <!-- Step 3: Programs to install (optional) -->
     <div class="step-panel" id="step-3">
+      <h2 class="step-title" data-i18n="sApps.title">Programas para instalar (opcional)</h2>
+      <p class="step-sub" data-i18n="sApps.sub">Instaladores .exe ou .msi são copiados para a mídia e executados no primeiro login</p>
+      <div class="dz dz-sm" id="app-dz">
+        <svg viewBox="0 0 44 44" width="34" height="34" fill="none" aria-hidden="true">
+          <rect x="9" y="13" width="26" height="20" rx="3" stroke="#C8D5E4" stroke-width="1.5"/>
+          <path d="M22 8v14m0 0-5-5m5 5 5-5" stroke="#C8D5E4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <p><span data-i18n="sApps.drop">Arraste instaladores aqui</span><br><span data-i18n="s0.or">ou </span><u id="app-dz-link" data-i18n="sApps.click">clique para selecionar</u></p>
+      </div>
+      <div class="opt-warn" id="app-invalid" data-i18n="sApps.onlyExeMsi">⚠ Apenas arquivos .exe e .msi são aceitos.</div>
+      <div class="inst-list" id="inst-list"></div>
+      <p class="opt-note" data-i18n="sApps.note">Instaladores .msi rodam silenciosamente por padrão (/qn). Para .exe, informe o argumento silencioso do instalador (ex: /S, /VERYSILENT) — sem ele, o instalador abrirá janelas no primeiro login.</p>
+    </div>
+
+    <!-- Step 4: Remove Windows apps (optional) -->
+    <div class="step-panel" id="step-4">
+      <h2 class="step-title" data-i18n="sRem.title">Remover apps do Windows (opcional)</h2>
+      <p class="step-sub" data-i18n="sRem.sub">Os apps selecionados serão desinstalados automaticamente no primeiro login</p>
+      <div class="opt-warn" id="debloat-unsupported" data-i18n="sRem.unsupported">⚠ Disponível apenas para Windows 10 e 11.</div>
+      <div id="debloat-wrap">
+        <div class="sel-links">
+          <button id="dbl-all"  data-i18n="sRem.selAll">Selecionar todos</button>
+          <button id="dbl-none" data-i18n="sRem.selNone">Limpar seleção</button>
+        </div>
+        <div class="checks" id="debloat-checks"></div>
+      </div>
+    </div>
+
+    <!-- Step 5: Build -->
+    <div class="step-panel" id="step-5">
       <!-- Mode selector (hidden in inject mode) -->
       <div class="seg-ctrl" id="s3-seg">
         <button class="seg-btn active" id="seg-iso"      onclick="setMode('iso')" data-i18n="s3.genIso">Gerar ISO</button>
@@ -722,8 +788,8 @@ input[type=file] { display:none; }
       <p class="xml-note"><span data-i18n="s3.xmlNote">Só precisa do arquivo?</span> <button id="btn-xml" data-i18n="s3.xmlBtn">Exportar só o autounattend.xml</button></p>
     </div>
 
-    <!-- Step 4: Concluído -->
-    <div class="step-panel" id="step-4">
+    <!-- Step 6: Concluído -->
+    <div class="step-panel" id="step-6">
       <div class="success-wrap">
         <svg width="60" height="60" viewBox="0 0 52 52" fill="none" aria-hidden="true">
           <circle class="s-circle" cx="26" cy="26" r="23" stroke="#059669" stroke-width="2.5" fill="none"/>
@@ -756,6 +822,8 @@ input[type=file] { display:none; }
       <div class="dot-ind" id="dot-2"></div>
       <div class="dot-ind" id="dot-3"></div>
       <div class="dot-ind" id="dot-4"></div>
+      <div class="dot-ind" id="dot-5"></div>
+      <div class="dot-ind" id="dot-6"></div>
     </div>
     <button class="btn-next" id="btn-next" disabled>Próximo</button>
   </footer>
@@ -779,6 +847,13 @@ const I18N = {
     's1.host':'Nome da máquina','s1.tz':'Fuso horário','s1.winver':'Versão do Windows','s1.edition':'Edição do Windows',
     's1.key':'Chave de produto','s1.keyOpt':'(opcional — deixe vazio para ativar depois)',
     's2.title':'O que você quer ativar?','s2.sub':'Aplicado via registro no primeiro login',
+    'step.apps':'Apps','step.remove':'Remover',
+    'sApps.title':'Programas para instalar (opcional)','sApps.sub':'Instaladores .exe ou .msi são copiados para a mídia e executados no primeiro login',
+    'sApps.drop':'Arraste instaladores aqui','sApps.click':'clique para selecionar','sApps.argsPh':'args ex: /S',
+    'sApps.note':'Instaladores .msi rodam silenciosamente por padrão (/qn). Para .exe, informe o argumento silencioso do instalador (ex: /S, /VERYSILENT) — sem ele, o instalador abrirá janelas no primeiro login.',
+    'sApps.onlyExeMsi':'⚠ Apenas arquivos .exe e .msi são aceitos.',
+    'sRem.title':'Remover apps do Windows (opcional)','sRem.sub':'Os apps selecionados serão desinstalados automaticamente no primeiro login',
+    'sRem.selAll':'Selecionar todos','sRem.selNone':'Limpar seleção','sRem.unsupported':'⚠ Disponível apenas para Windows 10 e 11.',
     's3.genIso':'Gerar ISO','s3.createUsb':'Criar Pendrive','s3.isoTitle':'Onde salvar a nova ISO?',
     's3.isoSub':'O autounattend.xml é injetado diretamente — sem recompilar','s3.browsePh':'Clique em Procurar para escolher…','s3.browse':'Procurar',
     's3.usbTitle':'Criar pendrive bootável','s3.usbSub':'O pendrive será formatado, o Windows copiado e o autounattend.xml injetado',
@@ -819,6 +894,13 @@ const I18N = {
     's1.host':'Computer name','s1.tz':'Time zone','s1.winver':'Windows version','s1.edition':'Windows edition',
     's1.key':'Product key','s1.keyOpt':'(optional — leave empty to activate later)',
     's2.title':'What do you want to enable?','s2.sub':'Applied via registry on first sign-in',
+    'step.apps':'Apps','step.remove':'Remove',
+    'sApps.title':'Programs to install (optional)','sApps.sub':'.exe or .msi installers are copied to the media and run at first sign-in',
+    'sApps.drop':'Drop installers here','sApps.click':'click to select','sApps.argsPh':'args e.g. /S',
+    'sApps.note':'.msi installers run silently by default (/qn). For .exe, enter the installer\'s silent switch (e.g. /S, /VERYSILENT) — without it the installer will open windows at first sign-in.',
+    'sApps.onlyExeMsi':'⚠ Only .exe and .msi files are accepted.',
+    'sRem.title':'Remove Windows apps (optional)','sRem.sub':'Selected apps are uninstalled automatically at first sign-in',
+    'sRem.selAll':'Select all','sRem.selNone':'Clear selection','sRem.unsupported':'⚠ Available only for Windows 10 and 11.',
     's3.genIso':'Build ISO','s3.createUsb':'Create USB','s3.isoTitle':'Where to save the new ISO?',
     's3.isoSub':'autounattend.xml is injected directly — no recompiling','s3.browsePh':'Click Browse to choose…','s3.browse':'Browse',
     's3.usbTitle':'Create bootable USB','s3.usbSub':'The USB will be formatted, Windows copied, and autounattend.xml injected',
@@ -859,6 +941,13 @@ const I18N = {
     's1.host':'Nombre del equipo','s1.tz':'Zona horaria','s1.winver':'Versión de Windows','s1.edition':'Edición de Windows',
     's1.key':'Clave de producto','s1.keyOpt':'(opcional — déjalo vacío para activar después)',
     's2.title':'¿Qué quieres activar?','s2.sub':'Aplicado por registro en el primer inicio de sesión',
+    'step.apps':'Apps','step.remove':'Quitar',
+    'sApps.title':'Programas para instalar (opcional)','sApps.sub':'Los instaladores .exe o .msi se copian al medio y se ejecutan en el primer inicio de sesión',
+    'sApps.drop':'Arrastra instaladores aquí','sApps.click':'haz clic para seleccionar','sApps.argsPh':'args ej: /S',
+    'sApps.note':'Los .msi se instalan en silencio por defecto (/qn). Para .exe, indica el parámetro silencioso del instalador (ej: /S, /VERYSILENT) — sin él, el instalador abrirá ventanas en el primer inicio.',
+    'sApps.onlyExeMsi':'⚠ Solo se aceptan archivos .exe y .msi.',
+    'sRem.title':'Quitar apps de Windows (opcional)','sRem.sub':'Las apps seleccionadas se desinstalan automáticamente en el primer inicio de sesión',
+    'sRem.selAll':'Seleccionar todo','sRem.selNone':'Limpiar selección','sRem.unsupported':'⚠ Disponible solo para Windows 10 y 11.',
     's3.genIso':'Generar ISO','s3.createUsb':'Crear USB','s3.isoTitle':'¿Dónde guardar la nueva ISO?',
     's3.isoSub':'autounattend.xml se inyecta directamente — sin recompilar','s3.browsePh':'Haz clic en Examinar para elegir…','s3.browse':'Examinar',
     's3.usbTitle':'Crear USB de arranque','s3.usbSub':'La USB se formateará, se copiará Windows y se inyectará autounattend.xml',
@@ -899,6 +988,13 @@ const I18N = {
     's1.host':'计算机名','s1.tz':'时区','s1.winver':'Windows 版本','s1.edition':'Windows 版本类型',
     's1.key':'产品密钥','s1.keyOpt':'（可选 — 留空可稍后激活）',
     's2.title':'你想启用哪些设置？','s2.sub':'首次登录时通过注册表应用',
+    'step.apps':'应用','step.remove':'移除',
+    'sApps.title':'要安装的程序（可选）','sApps.sub':'.exe 或 .msi 安装包会复制到介质中，并在首次登录时运行',
+    'sApps.drop':'将安装包拖到这里','sApps.click':'点击选择','sApps.argsPh':'参数 如 /S',
+    'sApps.note':'.msi 默认静默安装（/qn）。对于 .exe，请填写安装包的静默参数（如 /S、/VERYSILENT）— 否则首次登录时会弹出安装窗口。',
+    'sApps.onlyExeMsi':'⚠ 仅接受 .exe 和 .msi 文件。',
+    'sRem.title':'移除 Windows 应用（可选）','sRem.sub':'所选应用将在首次登录时自动卸载',
+    'sRem.selAll':'全选','sRem.selNone':'清除选择','sRem.unsupported':'⚠ 仅适用于 Windows 10 和 11。',
     's3.genIso':'生成 ISO','s3.createUsb':'创建 U 盘','s3.isoTitle':'新 ISO 保存到哪里？',
     's3.isoSub':'autounattend.xml 直接注入 — 无需重新编译','s3.browsePh':'点击“浏览”选择…','s3.browse':'浏览',
     's3.usbTitle':'创建可启动 U 盘','s3.usbSub':'U 盘将被格式化，复制 Windows 并注入 autounattend.xml',
@@ -939,6 +1035,13 @@ const I18N = {
     's1.host':'कंप्यूटर का नाम','s1.tz':'समय क्षेत्र','s1.winver':'Windows संस्करण','s1.edition':'Windows संस्करण प्रकार',
     's1.key':'उत्पाद कुंजी','s1.keyOpt':'(वैकल्पिक — बाद में सक्रिय करने के लिए खाली छोड़ें)',
     's2.title':'आप क्या सक्षम करना चाहते हैं?','s2.sub':'पहली साइन-इन पर रजिस्ट्री के माध्यम से लागू',
+    'step.apps':'ऐप्स','step.remove':'हटाएँ',
+    'sApps.title':'इंस्टॉल करने के प्रोग्राम (वैकल्पिक)','sApps.sub':'.exe या .msi इंस्टॉलर मीडिया में कॉपी होते हैं और पहले साइन-इन पर चलते हैं',
+    'sApps.drop':'इंस्टॉलर यहाँ छोड़ें','sApps.click':'चुनने के लिए क्लिक करें','sApps.argsPh':'आर्ग्स जैसे /S',
+    'sApps.note':'.msi डिफ़ॉल्ट रूप से साइलेंट इंस्टॉल होते हैं (/qn)। .exe के लिए इंस्टॉलर का साइलेंट स्विच दें (जैसे /S, /VERYSILENT) — इसके बिना पहले साइन-इन पर इंस्टॉलर विंडो खुलेंगी।',
+    'sApps.onlyExeMsi':'⚠ केवल .exe और .msi फ़ाइलें स्वीकार्य हैं।',
+    'sRem.title':'Windows ऐप्स हटाएँ (वैकल्पिक)','sRem.sub':'चुने गए ऐप्स पहले साइन-इन पर स्वतः अनइंस्टॉल हो जाएँगे',
+    'sRem.selAll':'सभी चुनें','sRem.selNone':'चयन हटाएँ','sRem.unsupported':'⚠ केवल Windows 10 और 11 के लिए उपलब्ध।',
     's3.genIso':'ISO बनाएँ','s3.createUsb':'USB बनाएँ','s3.isoTitle':'नई ISO कहाँ सहेजें?',
     's3.isoSub':'autounattend.xml सीधे इंजेक्ट होती है — बिना दोबारा कंपाइल किए','s3.browsePh':'चुनने के लिए Browse पर क्लिक करें…','s3.browse':'ब्राउज़ करें',
     's3.usbTitle':'बूटेबल USB बनाएँ','s3.usbSub':'USB फ़ॉर्मेट होगी, Windows कॉपी होगा और autounattend.xml इंजेक्ट होगी',
@@ -979,6 +1082,13 @@ const I18N = {
     's1.host':'اسم الكمبيوتر','s1.tz':'المنطقة الزمنية','s1.winver':'إصدار Windows','s1.edition':'نسخة Windows',
     's1.key':'مفتاح المنتج','s1.keyOpt':'(اختياري — اتركه فارغًا للتفعيل لاحقًا)',
     's2.title':'ما الذي تريد تفعيله؟','s2.sub':'يُطبَّق عبر السجل عند أول تسجيل دخول',
+    'step.apps':'تطبيقات','step.remove':'إزالة',
+    'sApps.title':'برامج للتثبيت (اختياري)','sApps.sub':'تُنسخ ملفات التثبيت ‎.exe أو ‎.msi إلى الوسائط وتُشغَّل عند أول تسجيل دخول',
+    'sApps.drop':'أفلت ملفات التثبيت هنا','sApps.click':'انقر للاختيار','sApps.argsPh':'وسائط مثل ‎/S',
+    'sApps.note':'تُثبَّت ملفات ‎.msi بصمت افتراضيًا (‎/qn). لملفات ‎.exe أدخل وسيطة التثبيت الصامت (مثل ‎/S أو ‎/VERYSILENT) — وبدونها ستُفتح نوافذ المثبّت عند أول تسجيل دخول.',
+    'sApps.onlyExeMsi':'⚠ تُقبل ملفات ‎.exe و‎.msi فقط.',
+    'sRem.title':'إزالة تطبيقات Windows (اختياري)','sRem.sub':'تُزال التطبيقات المحددة تلقائيًا عند أول تسجيل دخول',
+    'sRem.selAll':'تحديد الكل','sRem.selNone':'مسح التحديد','sRem.unsupported':'⚠ متاح فقط لـ Windows 10 و11.',
     's3.genIso':'إنشاء ISO','s3.createUsb':'إنشاء USB','s3.isoTitle':'أين تحفظ ملف ISO الجديد؟',
     's3.isoSub':'يتم حقن autounattend.xml مباشرة — دون إعادة بناء','s3.browsePh':'انقر على استعراض للاختيار…','s3.browse':'استعراض',
     's3.usbTitle':'إنشاء USB إقلاعي','s3.usbSub':'سيُهيَّأ USB وسيُنسخ Windows وسيُحقن autounattend.xml',
@@ -1131,8 +1241,10 @@ function setLang(lang) {
   document.documentElement.dir  = RTL_LANGS.has(lang) ? 'rtl' : 'ltr'
   const sel = document.getElementById('lang-select'); if (sel) sel.value = lang
   applyI18n()
-  if (typeof rebuildChecks === 'function') rebuildChecks()  // re-render translated check rows
-  if (typeof updateUI === 'function') updateUI()            // re-translate dynamic buttons
+  if (typeof rebuildChecks === 'function') rebuildChecks()      // re-render translated check rows
+  if (typeof renderDebloat === 'function') renderDebloat()      // re-render debloat rows
+  if (typeof renderInstallers === 'function') renderInstallers() // re-translate args placeholder
+  if (typeof updateUI === 'function') updateUI()                 // re-translate dynamic buttons
 }
 
 // ── Check dep badge ──────────────────────────────────────────
@@ -1169,6 +1281,8 @@ function refreshEditions() {
   // Win11 bypass row only makes sense for Windows 11
   const bypassRow = document.getElementById('cb-win11Bypass')?.closest('.cr')
   if (bypassRow) bypassRow.style.display = ver === '11' ? '' : 'none'
+  // Debloat step availability depends on the selected Windows version (10/11 only)
+  if (typeof renderDebloat === 'function') renderDebloat()
 }
 
 // Detect Windows version from ISO filename (build numbers + common naming)
@@ -1230,7 +1344,144 @@ function rebuildChecks() {
 rebuildChecks();
 
 // ── State ────────────────────────────────────────────────────
-const st = { step: 0, iso: null, out: null, busy: false, injectTarget: null, mode: 'iso', pendriveDisk: null };
+const st = { step: 0, iso: null, out: null, busy: false, injectTarget: null, mode: 'iso', pendriveDisk: null, installers: [] };
+
+// Step layout: 0 ISO · 1 Identidade · 2 Tweaks · 3 Apps · 4 Remover · 5 Criar · 6 Pronto
+const N_STEPS = 7, STEP_CREATE = 5, STEP_DONE = 6;
+
+// ── Step 3 (Apps): installers bundled into the media ────────
+// Files land in sources\$OEM$\$1\Installers (→ C:\Installers) and each one
+// becomes a FirstLogonCommand — see generateXML in main.js.
+const appDz = document.getElementById('app-dz')
+
+function fmtInstSize(b) { return b >= 1e6 ? (b/1e6).toFixed(1)+' MB' : Math.max(1, Math.round(b/1e3))+' KB' }
+
+function addInstallers(files) {   // files: [{ path, size }]
+  let rejected = false
+  for (const f of files) {
+    if (!/\.(exe|msi)$/i.test(f.path)) { rejected = true; continue }
+    if (st.installers.some(i => i.path === f.path)) continue
+    st.installers.push({ path: f.path, name: f.path.split('/').pop(), size: f.size || 0, args: '' })
+  }
+  const warn = document.getElementById('app-invalid')
+  if (warn) warn.style.display = rejected ? 'block' : 'none'
+  renderInstallers()
+}
+
+function renderInstallers() {
+  const list = document.getElementById('inst-list')
+  if (!list) return
+  list.innerHTML = ''
+  st.installers.forEach((f, idx) => {
+    const row = document.createElement('div')
+    row.className = 'inst-item'
+    row.innerHTML = `
+      <span class="inst-ico">📦</span>
+      <span class="inst-name" title="${esc(f.path)}">${esc(f.name)}</span>
+      <span class="inst-size">${f.size ? fmtInstSize(f.size) : ''}</span>
+      <input class="inst-args" type="text" placeholder="${esc(t('sApps.argsPh'))}" spellcheck="false" autocomplete="off">
+      <span class="inst-rm" title="Remover">×</span>`
+    const args = row.querySelector('.inst-args')
+    args.value = f.args
+    args.addEventListener('input', () => { f.args = args.value })
+    row.querySelector('.inst-rm').addEventListener('click', () => {
+      st.installers.splice(idx, 1)
+      renderInstallers()
+    })
+    list.appendChild(row)
+  })
+}
+
+appDz.addEventListener('dragover', e => { e.preventDefault(); appDz.classList.add('over') })
+appDz.addEventListener('dragleave', () => appDz.classList.remove('over'))
+appDz.addEventListener('drop', e => {
+  e.preventDefault(); appDz.classList.remove('over')
+  addInstallers([...e.dataTransfer.files].filter(f => f.path).map(f => ({ path: f.path, size: f.size })))
+})
+appDz.addEventListener('click', async () => {
+  if (!window.api?.openInstallers) return
+  const files = await window.api.openInstallers()   // [{ path, size }]
+  if (files?.length) addInstallers(files)
+})
+
+// ── Step 4 (Remover): built-in Windows apps to debloat ──────
+// ids must stay in sync with REMOVABLE_APPS in main.js.
+// Labels are product names (kept untranslated, like other technical tokens).
+const DEBLOAT_APPS = [
+  { id:'xbox',          label:'Xbox',                      pkg:'Microsoft.Xbox* · Microsoft.GamingApp' },
+  { id:'copilot',       label:'Copilot',                   pkg:'Microsoft.Copilot' },
+  { id:'cortanaApp',    label:'Cortana (app)',             pkg:'Microsoft.549981C3F5F10' },
+  { id:'oneDrive',      label:'OneDrive',                  pkg:'OneDriveSetup /uninstall' },
+  { id:'teams',         label:'Teams (chat pessoal)',      pkg:'MicrosoftTeams · MSTeams' },
+  { id:'outlookNew',    label:'Outlook (novo)',            pkg:'Microsoft.OutlookForWindows' },
+  { id:'clipchamp',     label:'Clipchamp',                 pkg:'Clipchamp.Clipchamp' },
+  { id:'bingNews',      label:'Microsoft News',            pkg:'Microsoft.BingNews' },
+  { id:'bingWeather',   label:'MSN Weather',               pkg:'Microsoft.BingWeather' },
+  { id:'officeHub',     label:'Microsoft 365 (Office Hub)',pkg:'Microsoft.MicrosoftOfficeHub' },
+  { id:'oneNote',       label:'OneNote',                   pkg:'Microsoft.Office.OneNote' },
+  { id:'skype',         label:'Skype',                     pkg:'Microsoft.SkypeApp' },
+  { id:'solitaire',     label:'Solitaire Collection',      pkg:'Microsoft.MicrosoftSolitaireCollection' },
+  { id:'mailCalendar',  label:'Mail / Calendar',           pkg:'microsoft.windowscommunicationsapps' },
+  { id:'maps',          label:'Windows Maps',              pkg:'Microsoft.WindowsMaps' },
+  { id:'people',        label:'People',                    pkg:'Microsoft.People' },
+  { id:'yourPhone',     label:'Phone Link',                pkg:'Microsoft.YourPhone' },
+  { id:'getHelp',       label:'Get Help',                  pkg:'Microsoft.GetHelp' },
+  { id:'getStarted',    label:'Tips (Get Started)',        pkg:'Microsoft.Getstarted' },
+  { id:'feedbackHub',   label:'Feedback Hub',              pkg:'Microsoft.WindowsFeedbackHub' },
+  { id:'todos',         label:'Microsoft To Do',           pkg:'Microsoft.Todos' },
+  { id:'stickyNotes',   label:'Sticky Notes',              pkg:'Microsoft.MicrosoftStickyNotes' },
+  { id:'alarms',        label:'Alarms & Clock',            pkg:'Microsoft.WindowsAlarms' },
+  { id:'soundRecorder', label:'Sound Recorder',            pkg:'Microsoft.WindowsSoundRecorder' },
+  { id:'zuneMusic',     label:'Media Player (Groove)',     pkg:'Microsoft.ZuneMusic' },
+  { id:'zuneVideo',     label:'Movies & TV',               pkg:'Microsoft.ZuneVideo' },
+]
+
+const debloatSel = {}   // id → bool; survives language/version re-renders
+
+function debloatSupported() {
+  const v = document.getElementById('f-winver')?.value
+  return v === '10' || v === '11'
+}
+
+function debloatSelected() {
+  return debloatSupported() ? DEBLOAT_APPS.filter(a => debloatSel[a.id]).map(a => a.id) : []
+}
+
+function renderDebloat() {
+  const ct   = document.getElementById('debloat-checks')
+  const wrap = document.getElementById('debloat-wrap')
+  const warn = document.getElementById('debloat-unsupported')
+  if (!ct || !wrap || !warn) return
+  const ok = debloatSupported()
+  warn.style.display = ok ? 'none' : 'block'
+  wrap.style.display = ok ? '' : 'none'
+  if (!ok) return
+  ct.innerHTML = ''
+  DEBLOAT_APPS.forEach(({ id, label, pkg }) => {
+    const row = document.createElement('div')
+    row.className = 'cr'
+    row.innerHTML = `
+      <div class="cr-info">
+        <span class="cr-name">${esc(label)}</span>
+        <span class="cr-desc mono">${esc(pkg)}</span>
+      </div>
+      <label class="tog" onclick="event.stopPropagation()">
+        <input type="checkbox" id="dbl-${id}" ${debloatSel[id] ? 'checked' : ''}>
+        <span class="tog-track"></span>
+      </label>`
+    const cb = row.querySelector('input')
+    cb.addEventListener('change', () => { debloatSel[id] = cb.checked })
+    row.addEventListener('click', () => { cb.checked = !cb.checked; debloatSel[id] = cb.checked })
+    ct.appendChild(row)
+  })
+}
+
+document.getElementById('dbl-all').addEventListener('click', () => {
+  DEBLOAT_APPS.forEach(a => { debloatSel[a.id] = true }); renderDebloat()
+})
+document.getElementById('dbl-none').addEventListener('click', () => {
+  DEBLOAT_APPS.forEach(a => { debloatSel[a.id] = false }); renderDebloat()
+})
 
 // ── Step navigation ──────────────────────────────────────────
 function canAdvance() {
@@ -1238,18 +1489,20 @@ function canAdvance() {
     case 0: return !!st.iso;
     case 1: return !!document.getElementById('f-user').value.trim();
     case 2: return true;
-    case 3:
+    case 3: return true;   // installers — optional
+    case 4: return true;   // debloat — optional
+    case STEP_CREATE:
       if (st.injectTarget)       return !st.busy
       if (st.mode === 'pendrive') return !!st.pendriveDisk && !!st.iso && !st.busy
       return !!st.out && !st.busy
-    case 4: return true;
+    case STEP_DONE: return true;
     default: return false;
   }
 }
 
 function updateUI() {
   // Step items + lines
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < N_STEPS; i++) {
     const si = document.getElementById(`si-${i}`);
     si.classList.remove('active','done');
     if (i === st.step) si.classList.add('active');
@@ -1257,26 +1510,29 @@ function updateUI() {
     const sc = si.querySelector('.step-circle');
     sc.textContent = i < st.step ? '✓' : i + 1;
   }
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < N_STEPS - 1; i++) {
     document.getElementById(`sl-${i}`).classList.toggle('done', i < st.step);
   }
   // Dots
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < N_STEPS; i++) {
     const d = document.getElementById(`dot-${i}`);
     d.classList.remove('active','done');
     if (i === st.step) d.classList.add('active');
     else if (i < st.step) d.classList.add('done');
   }
+  // While writing to the device, every escape hatch out of the create step is locked
+  const scanBtn = document.getElementById('btn-scan-usb');
+  if (scanBtn) scanBtn.disabled = st.busy;
   // Buttons
   const back = document.getElementById('btn-back');
   const next = document.getElementById('btn-next');
-  if (st.step === 4) {
+  if (st.step === STEP_DONE) {
     back.classList.add('hidden');
     next.textContent = t('footer.close');
     next.disabled = false;
   } else {
-    back.classList.toggle('hidden', st.step === 0);
-    if (st.step === 3) {
+    back.classList.toggle('hidden', st.step === 0 || st.busy);
+    if (st.step === STEP_CREATE) {
       next.textContent = st.injectTarget      ? t('footer.inject')
                        : st.mode === 'pendrive' ? t('footer.createUsb')
                        : t('footer.createIso')
@@ -1285,7 +1541,7 @@ function updateUI() {
     }
     next.disabled = !canAdvance();
   }
-  // Sync mode visibility in step 3
+  // Sync mode visibility in the create step (panel ids keep the historical s3- prefix)
   const isoMode      = document.getElementById('s3-iso-mode')
   const injectMode   = document.getElementById('s3-inject-mode')
   const pendriveMode = document.getElementById('s3-pendrive-mode')
@@ -1311,17 +1567,18 @@ function goTo(n, dir) {
   nxt.classList.add('active', dir === 'back' ? 'anim-back' : 'anim-fwd');
   st.step = n;
   document.getElementById('wiz-body').scrollTop = 0;
-  if (n === 3 && !st.out && st.iso) suggestOut(st.iso);
+  if (n === STEP_CREATE && !st.out && st.iso) suggestOut(st.iso);
   updateUI();
   setTimeout(() => nxt.classList.remove('anim-fwd','anim-back'), 300);
 }
 
 document.getElementById('btn-back').addEventListener('click', () => {
+  if (st.busy) return;
   if (st.step > 0) goTo(st.step - 1, 'back');
 });
 document.getElementById('btn-next').addEventListener('click', () => {
-  if (st.step === 4) { window.api && window.api.quitApp(); return; }
-  if (st.step < 3) goTo(st.step + 1, 'fwd');
+  if (st.step === STEP_DONE) { window.api && window.api.quitApp(); return; }
+  if (st.step < STEP_CREATE) goTo(st.step + 1, 'fwd');
   else if (st.injectTarget)        startInject();
   else if (st.mode === 'pendrive') startPendrive();
   else                             startBuild();
@@ -1403,6 +1660,7 @@ function suggestOut(iso) {
   updateUI();
 }
 document.getElementById('btn-clear-inject').addEventListener('click', () => {
+  if (st.busy) return;
   st.injectTarget = null;
   updateUI();
 });
@@ -1438,6 +1696,8 @@ function buildCfg() {
     edition:  document.getElementById('f-edition').value,
     productKey: productKey || null,
     checks,
+    installers: st.installers.map(f => ({ path: f.path, name: f.name, args: f.args || '' })),
+    removeApps: debloatSelected(),
   };
 }
 
@@ -1523,12 +1783,14 @@ async function startInject() {
   const addLog = (msg, type = 'info') => appendLog({ msg, type })
   try {
     addLog('Gerando autounattend.xml...')
-    const xml = await window.api.generateXML(buildCfg())
+    const cfg = buildCfg()
+    const xml = await window.api.generateXML(cfg)
     addLog('autounattend.xml gerado', 'ok')
     const hasKey = xml.includes('<ProductKey>')
     addLog(hasKey ? '⚠ XML contém <ProductKey>' : '✓ Sem <ProductKey> (correto)', hasKey ? 'warn' : 'ok')
+    if (cfg.installers.length) addLog(`Copiando ${cfg.installers.length} instalador(es) para o pendrive...`)
     addLog(`Gravando em ${st.injectTarget}...`)
-    const res = await window.api.injectXML(st.injectTarget, xml)
+    const res = await window.api.injectXML(st.injectTarget, xml, cfg.installers)
     document.getElementById('log-spin').classList.remove('on')
     st.busy = false
     if (res.success) {
@@ -1539,7 +1801,7 @@ async function startInject() {
       addLog('Concluído!', 'ok')
       document.getElementById('s4-fname').textContent = res.path
       document.getElementById('s4-vr').className = 's4-vr'
-      goTo(4, 'fwd')
+      goTo(STEP_DONE, 'fwd')
     } else {
       addLog(`Erro: ${res.error}`, 'err')
       result.className = 'result err'
@@ -1557,6 +1819,7 @@ async function startInject() {
 // ── Start build ──────────────────────────────────────────────
 // ── Pendrive creation mode ───────────────────────────────────
 function setMode(mode) {
+  if (st.busy) return
   st.mode = mode
   if (mode === 'pendrive') loadPendriveDisks()
   updateUI()
@@ -1564,7 +1827,7 @@ function setMode(mode) {
 
 async function loadPendriveDisks() {
   const list = document.getElementById('pendrive-disk-list')
-  if (!list) return
+  if (!list || st.busy) return
   list.innerHTML = `<p class="empty-msg">${t('common.loading')}</p>`
   const disks = window.api ? await window.api.listUSBDisks().catch(() => []) : []
   if (!disks.length) {
@@ -1583,6 +1846,7 @@ async function loadPendriveDisks() {
       </div>
       <span class="dc-size">${esc(disk.size)}</span>`
     card.addEventListener('click', () => {
+      if (st.busy) return
       st.pendriveDisk = disk.device
       document.querySelectorAll('.disk-card').forEach(c => c.classList.remove('active'))
       card.classList.add('active')
@@ -1605,7 +1869,17 @@ async function startPendrive() {
   document.getElementById('log-wrap').classList.add('open')
   document.getElementById('log-spin').classList.add('on')
 
-  const xml = await window.api.generateXML(buildCfg())
+  let cfg, xml
+  try {
+    cfg = buildCfg()
+    xml = await window.api.generateXML(cfg)
+  } catch (err) {
+    st.busy = false
+    document.getElementById('log-spin').classList.remove('on')
+    appendLog({ msg: `Erro ao gerar XML: ${err.message}`, type: 'err' })
+    updateUI()
+    return
+  }
 
   window.api.removeAll()
   window.api.onLog(appendLog)
@@ -1617,7 +1891,7 @@ async function startPendrive() {
       document.getElementById('s4-title').textContent = t('s4.usbTitle')
       document.getElementById('s4-sub').textContent   = t('s4.usbSub')
       document.getElementById('s4-vr').className      = 's4-vr'
-      goTo(4, 'fwd')
+      goTo(STEP_DONE, 'fwd')
     } else {
       result.className = 'result err'
       result.innerHTML = `<span>✗</span> ${t('result.usbFail')}`
@@ -1628,7 +1902,10 @@ async function startPendrive() {
 
   const volumeLabel = document.getElementById('f-vol-label')?.value.trim() || null
   const winVersion  = document.getElementById('f-winver').value
-  window.api.createBootable({ device: st.pendriveDisk, isoPath: st.iso, xmlContent: xml, volumeLabel, winVersion })
+  window.api.createBootable({
+    device: st.pendriveDisk, isoPath: st.iso, xmlContent: xml, volumeLabel, winVersion,
+    installers: cfg.installers,
+  })
 }
 
 function startBuild() {
@@ -1650,7 +1927,7 @@ function startBuild() {
     if (success) {
       document.getElementById('s4-fname').textContent = st.out;
       document.getElementById('s4-vr').className = 's4-vr';
-      goTo(4, 'fwd');
+      goTo(STEP_DONE, 'fwd');
     } else {
       result.className = 'result err';
       result.innerHTML = `<span>✗</span> ${t('result.isoFail')}`;
@@ -1664,7 +1941,7 @@ function startBuild() {
 
 // ── Export XML ───────────────────────────────────────────────
 document.getElementById('btn-xml').addEventListener('click', async () => {
-  if (!window.api) return;
+  if (!window.api || st.busy) return;
   const r = await window.api.saveXMLFile(buildCfg());
   if (r.success) {
     const result = document.getElementById('result');
@@ -1919,6 +2196,7 @@ function buildDriveCard(dev, card) {
 }
 
 async function openUSBModal() {
+  if (st.busy) return  // never allow leaving an in-progress write via the analysis modal
   const modal = document.getElementById('modal-usb')
   const body  = document.getElementById('modal-usb-body')
   document.getElementById('modal-usb-import').disabled = true

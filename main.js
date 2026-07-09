@@ -77,6 +77,74 @@ const GENERIC_KEYS = {
 }
 GENERIC_KEYS['11'] = GENERIC_KEYS['10']
 
+// Built-in apps removable at first logon (Win10/11 appx packages).
+// ids mirror DEBLOAT_APPS in index.html — keep both lists in sync.
+const REMOVABLE_APPS = {
+  xbox:          ['Microsoft.Xbox*', 'Microsoft.GamingApp'],
+  copilot:       ['Microsoft.Copilot*', 'Microsoft.Windows.Ai.Copilot.Provider'],
+  cortanaApp:    ['Microsoft.549981C3F5F10'],
+  teams:         ['MicrosoftTeams', 'MSTeams'],
+  outlookNew:    ['Microsoft.OutlookForWindows'],
+  clipchamp:     ['Clipchamp.Clipchamp'],
+  bingNews:      ['Microsoft.BingNews'],
+  bingWeather:   ['Microsoft.BingWeather'],
+  officeHub:     ['Microsoft.MicrosoftOfficeHub'],
+  oneNote:       ['Microsoft.Office.OneNote'],
+  skype:         ['Microsoft.SkypeApp'],
+  solitaire:     ['Microsoft.MicrosoftSolitaireCollection'],
+  mailCalendar:  ['microsoft.windowscommunicationsapps'],
+  maps:          ['Microsoft.WindowsMaps'],
+  people:        ['Microsoft.People'],
+  yourPhone:     ['Microsoft.YourPhone'],
+  getHelp:       ['Microsoft.GetHelp'],
+  getStarted:    ['Microsoft.Getstarted'],
+  feedbackHub:   ['Microsoft.WindowsFeedbackHub'],
+  todos:         ['Microsoft.Todos'],
+  stickyNotes:   ['Microsoft.MicrosoftStickyNotes'],
+  alarms:        ['Microsoft.WindowsAlarms'],
+  soundRecorder: ['Microsoft.WindowsSoundRecorder'],
+  zuneMusic:     ['Microsoft.ZuneMusic'],
+  zuneVideo:     ['Microsoft.ZuneVideo'],
+}
+
+// One PowerShell command removing both the installed and the provisioned copy
+// of each pattern — provisioned removal keeps accounts created later clean too.
+// Kept well under the 1024-char FirstLogonCommands CommandLine limit.
+function removeAppxCmd(patterns) {
+  const list = patterns.map(p => `'${p}'`).join(',')
+  return 'powershell -NoProfile -ExecutionPolicy Bypass -Command "' +
+    `foreach($n in ${list}){` +
+    'Get-AppxPackage -AllUsers $n -ErrorAction SilentlyContinue|Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue;' +
+    'Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue|Where-Object{$_.DisplayName -like $n}|Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue' +
+    '}"'
+}
+
+// OneDrive ships as a plain installer, not an appx — uninstall via its own setup.
+const ONEDRIVE_UNINSTALL_CMD =
+  'cmd /c "if exist %SystemRoot%\\SysWOW64\\OneDriveSetup.exe (start /wait %SystemRoot%\\SysWOW64\\OneDriveSetup.exe /uninstall) else (start /wait %SystemRoot%\\System32\\OneDriveSetup.exe /uninstall)"'
+
+// Windows-safe file name for the $OEM$ payload: basename only, no characters
+// NTFS/setup can't handle. Returns '' when nothing usable remains.
+function safeInstallerName(name) {
+  return String(name || '').split('/').pop().split('\\').pop()
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '').trim()
+}
+
+// Copies the selected installers into <root>/sources/$OEM$/$1/Installers —
+// Windows setup copies $OEM$\$1 to the system drive, so files land in C:\Installers.
+async function copyInstallersTo(rootDir, installers, log = () => {}) {
+  const valid = (installers || []).filter(f => f && f.path && safeInstallerName(f.name || f.path))
+  if (!valid.length) return 0
+  const dir = path.join(rootDir, 'sources', '$OEM$', '$1', 'Installers')
+  await fs.mkdir(dir, { recursive: true })
+  for (const f of valid) {
+    const name = safeInstallerName(f.name || f.path)
+    log(`  Copiando ${name}...`, 'dim')
+    await fs.copyFile(f.path, path.join(dir, name))
+  }
+  return valid.length
+}
+
 function generateXML(cfg) {
   const { username, password, hostname, timezone, productKey, edition, checks: c } = cfg
   // winVersion: '7' | '8' | '10' | '11' — controls schema-sensitive blocks.
@@ -116,6 +184,33 @@ function generateXML(cfg) {
   if (c.noActivityHistory)
     cmds.push([n++, 'Disable activity history',
       'reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System" /v EnableActivityFeed /t REG_DWORD /d 0 /f'])
+
+  // Debloat: uninstall the selected built-in apps at first logon.
+  // Win10/11 only — the appx package names in REMOVABLE_APPS don't exist on 7/8.
+  if ((v === '10' || v === '11') && Array.isArray(cfg.removeApps)) {
+    for (const id of cfg.removeApps) {
+      if (id === 'oneDrive') {
+        cmds.push([n++, 'Uninstall OneDrive', ONEDRIVE_UNINSTALL_CMD])
+        continue
+      }
+      const patterns = REMOVABLE_APPS[id]
+      if (patterns) cmds.push([n++, `Remove app: ${id}`, removeAppxCmd(patterns)])
+    }
+  }
+
+  // Bundled installers: the files travel on the media in sources\$OEM$\$1\Installers,
+  // which Windows setup copies to C:\Installers — run each one at first logon.
+  // .msi installs silently by default; .exe uses whatever switches the user provided.
+  for (const inst of (cfg.installers || [])) {
+    const name = safeInstallerName(inst.name)
+    if (!name) continue
+    const target = `C:\\Installers\\${name}`
+    const args = String(inst.args || '').trim()
+    const cmd = /\.msi$/i.test(name)
+      ? `msiexec /i "${target}" ${args || '/qn /norestart'}`
+      : `cmd /c start "" /wait "${target}" ${args}`.trim()
+    cmds.push([n++, `Install: ${name}`, cmd])
+  }
 
   const firstLogon = cmds.length === 0 ? '' : `\n      <FirstLogonCommands>\n` +
     cmds.map(([order, desc, cmd]) =>
@@ -431,6 +526,20 @@ ipcMain.handle('dialog:saveISO', (_, name) =>
     filters: [{ name: 'Imagens ISO', extensions: ['iso'] }],
   }).then(r => r.filePath || null))
 
+ipcMain.handle('dialog:openInstallers', async () => {
+  const r = await dialog.showOpenDialog(win, {
+    title: 'Selecionar instaladores (.exe / .msi)',
+    filters: [{ name: 'Instaladores Windows', extensions: ['exe', 'msi'] }],
+    properties: ['openFile', 'multiSelections'],
+  })
+  const out = []
+  for (const p of (r.filePaths || [])) {
+    const size = await fs.stat(p).then(s => s.size).catch(() => 0)
+    out.push({ path: p, size })
+  }
+  return out
+})
+
 ipcMain.handle('check:deps', () => ({
   xorriso: cmdExists('xorriso'),
   parted:  cmdExists('parted'),
@@ -482,14 +591,19 @@ ipcMain.on('iso:process', async (event, cfg) => {
     await runProc('cp', ['--reflink=auto', cfg.isoPath, cfg.outputPath], l => log(l, 'dim'))
     log('Cópia concluída', 'ok')
 
-    // Step 2 — inject autounattend.xml in-place; -dev opens for read+write
-    // so xorriso never discards the El-Torito/EFI boot sectors
+    // Step 2 — inject autounattend.xml (+ bundled installers) in-place; -dev opens
+    // for read+write so xorriso never discards the El-Torito/EFI boot sectors
     log('Injetando autounattend.xml...')
-    await runProc('xorriso', [
-      '-dev',  cfg.outputPath,
-      '-map',  xmlPath, '/autounattend.xml',
-      '-commit',
-    ], l => log(l, 'dim'))
+    const xorrisoArgs = ['-dev', cfg.outputPath, '-map', xmlPath, '/autounattend.xml']
+    const installers = (cfg.installers || []).filter(f => f && f.path && safeInstallerName(f.name || f.path))
+    if (installers.length) {
+      log(`Injetando ${installers.length} instalador(es) em /sources/$OEM$/$1/Installers...`)
+      for (const f of installers) {
+        xorrisoArgs.push('-map', f.path, `/sources/$OEM$/$1/Installers/${safeInstallerName(f.name || f.path)}`)
+      }
+    }
+    xorrisoArgs.push('-commit')
+    await runProc('xorriso', xorrisoArgs, l => log(l, 'dim'))
 
     log(`ISO salva: ${cfg.outputPath}`, 'ok')
     await fs.rm(tmp, { recursive: true, force: true })
@@ -555,7 +669,7 @@ ipcMain.on('usb:createBootable', async (event, cfg) => {
   // Sends a progress update without a log line.  stage is the label shown in the progress bar.
   const prog = (pct, stage)         => event.sender.send('iso:log', { type: 'progress', progress: pct, stage })
 
-  const { device, isoPath, xmlContent, volumeLabel, winVersion } = cfg
+  const { device, isoPath, xmlContent, volumeLabel, winVersion, installers } = cfg
   // /dev/sdb → /dev/sdb1, but /dev/mmcblk0 or /dev/nvme0n1 → p1 suffix
   const partition = /\d$/.test(device) ? `${device}p1` : `${device}1`
   const devBase   = device.split('/').pop()  // "sdb" — for /sys/block/<dev>/stat
@@ -678,6 +792,13 @@ ipcMain.on('usb:createBootable', async (event, cfg) => {
       )
       log('Extração concluída — finalizando gravação física...', 'ok')
 
+      // 5b. Bundled installers → sources\$OEM$\$1\Installers (setup copies to C:\Installers)
+      if ((installers || []).length) {
+        log('Copiando instaladores para o pendrive...')
+        const nCopied = await copyInstallersTo(mountPoint, installers, log)
+        log(`${nCopied} instalador(es) copiado(s) para sources\\$OEM$\\$1\\Installers`, 'ok')
+      }
+
       // 6. Inject autounattend.xml (overwrite in-place to handle UPPERCASE variants)
       log('Injetando autounattend.xml...')
       const entries = await fs.readdir(mountPoint).catch(() => [])
@@ -782,8 +903,8 @@ ipcMain.handle('usb:mount', async (_, devicePath) => {
   }
 })
 
-// Write autounattend.xml directly to a mounted USB drive root
-ipcMain.handle('usb:injectXML', async (_, mountPoint, xmlContent) => {
+// Write autounattend.xml (+ bundled installers) directly to a mounted USB drive root
+ipcMain.handle('usb:injectXML', async (_, mountPoint, xmlContent, installers) => {
   try {
     const entries = await fs.readdir(mountPoint).catch(() => [])
     const found = entries.filter(e => /^autounattend\.xml$/i.test(e))
@@ -797,6 +918,10 @@ ipcMain.handle('usb:injectXML', async (_, mountPoint, xmlContent) => {
       await fs.writeFile(path.join(mountPoint, name), xmlContent, 'utf8')
     }
 
+    // Bundled installers referenced by the XML's FirstLogonCommands must exist
+    // on the media too — copy them before flushing.
+    const installersCopied = await copyInstallersTo(mountPoint, installers)
+
     // Flush THIS filesystem to physical media before the user removes the drive
     // (sync -f = syncfs — never global sync, which waits on every fs on the machine).
     await runCmd('sync', ['-f', mountPoint]).catch(() => {})
@@ -809,7 +934,7 @@ ipcMain.handle('usb:injectXML', async (_, mountPoint, xmlContent) => {
       return { success: false, error: 'Verificação falhou: XML ainda contém <ProductKey> inválido após escrita' }
     }
 
-    return { success: true, path: primary, writtenTo: targets }
+    return { success: true, path: primary, writtenTo: targets, installersCopied }
   } catch (err) {
     return { success: false, error: err.message }
   }
