@@ -631,6 +631,10 @@ ipcMain.handle('iso:hasUnattend', async (_, isoPath) => {
   }
 })
 
+// Full autounattend.xml content from an ISO — used to prefill the wizard
+// (bundled installers, apps to remove) when loading an already-customized ISO.
+ipcMain.handle('iso:readXML', (_, isoPath) => readFileFromISO(isoPath, '/autounattend.xml'))
+
 ipcMain.handle('shell:openFolder', (_, filePath) => {
   shell.showItemInFolder(filePath)
 })

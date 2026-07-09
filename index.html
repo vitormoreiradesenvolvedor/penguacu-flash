@@ -1127,6 +1127,7 @@ const I18N = {
 // Kept separate so the block can grow without touching each language's main object.
 const I18N_MODAL = {
   pt: {
+    'ana.installers':'Programas incluídos','ana.removeApps':'Apps a remover','sApps.onMedia':'já na mídia',
     'modal.usbHint':'Clique em um pendrive para analisar','modal.noUsb':'Nenhum pendrive USB detectado.','modal.noUsbHint':'Conecte o pendrive e tente novamente.',
     'modal.reading':'Lendo autounattend.xml…','modal.mount':'Montar','modal.mounting':'Montando…','modal.mountFail':'Falhou — tentar novamente','modal.err':'Erro',
     'ana.noXml':'— Sem autounattend.xml','ana.checkingRoot':'Verificando conteúdo da raiz…','ana.xmlInvalid':'⚠ XML inválido ou ilegível',
@@ -1141,6 +1142,7 @@ const I18N_MODAL = {
     'export.saved':'autounattend.xml salvo em',
   },
   en: {
+    'ana.installers':'Bundled programs','ana.removeApps':'Apps to remove','sApps.onMedia':'already on media',
     'modal.usbHint':'Click a USB drive to analyze','modal.noUsb':'No USB drive detected.','modal.noUsbHint':'Plug in the USB and try again.',
     'modal.reading':'Reading autounattend.xml…','modal.mount':'Mount','modal.mounting':'Mounting…','modal.mountFail':'Failed — try again','modal.err':'Error',
     'ana.noXml':'— No autounattend.xml','ana.checkingRoot':'Checking root contents…','ana.xmlInvalid':'⚠ Invalid or unreadable XML',
@@ -1155,6 +1157,7 @@ const I18N_MODAL = {
     'export.saved':'autounattend.xml saved to',
   },
   es: {
+    'ana.installers':'Programas incluidos','ana.removeApps':'Apps a quitar','sApps.onMedia':'ya en el medio',
     'modal.usbHint':'Haz clic en una USB para analizar','modal.noUsb':'No se detectó ninguna USB.','modal.noUsbHint':'Conecta la USB e inténtalo de nuevo.',
     'modal.reading':'Leyendo autounattend.xml…','modal.mount':'Montar','modal.mounting':'Montando…','modal.mountFail':'Falló — reintentar','modal.err':'Error',
     'ana.noXml':'— Sin autounattend.xml','ana.checkingRoot':'Comprobando el contenido de la raíz…','ana.xmlInvalid':'⚠ XML inválido o ilegible',
@@ -1169,6 +1172,7 @@ const I18N_MODAL = {
     'export.saved':'autounattend.xml guardado en',
   },
   zh: {
+    'ana.installers':'随附程序','ana.removeApps':'要移除的应用','sApps.onMedia':'已在介质中',
     'modal.usbHint':'点击一个 U 盘进行分析','modal.noUsb':'未检测到 U 盘。','modal.noUsbHint':'插入 U 盘后重试。',
     'modal.reading':'正在读取 autounattend.xml…','modal.mount':'挂载','modal.mounting':'正在挂载…','modal.mountFail':'失败 — 重试','modal.err':'错误',
     'ana.noXml':'— 无 autounattend.xml','ana.checkingRoot':'正在检查根目录内容…','ana.xmlInvalid':'⚠ XML 无效或无法读取',
@@ -1183,6 +1187,7 @@ const I18N_MODAL = {
     'export.saved':'autounattend.xml 已保存到',
   },
   hi: {
+    'ana.installers':'शामिल प्रोग्राम','ana.removeApps':'हटाने वाले ऐप्स','sApps.onMedia':'मीडिया में मौजूद',
     'modal.usbHint':'विश्लेषण के लिए किसी USB पर क्लिक करें','modal.noUsb':'कोई USB नहीं मिली।','modal.noUsbHint':'USB लगाएँ और फिर से प्रयास करें।',
     'modal.reading':'autounattend.xml पढ़ी जा रही है…','modal.mount':'माउंट करें','modal.mounting':'माउंट हो रही है…','modal.mountFail':'विफल — फिर से प्रयास करें','modal.err':'त्रुटि',
     'ana.noXml':'— कोई autounattend.xml नहीं','ana.checkingRoot':'रूट सामग्री जाँची जा रही है…','ana.xmlInvalid':'⚠ अमान्य या अपठनीय XML',
@@ -1197,6 +1202,7 @@ const I18N_MODAL = {
     'export.saved':'autounattend.xml यहाँ सहेजी गई',
   },
   ar: {
+    'ana.installers':'البرامج المضمّنة','ana.removeApps':'تطبيقات للإزالة','sApps.onMedia':'موجود في الوسائط',
     'modal.usbHint':'انقر على قرص USB لتحليله','modal.noUsb':'لم يتم اكتشاف أي USB.','modal.noUsbHint':'أدخل USB وحاول مجددًا.',
     'modal.reading':'جارٍ قراءة autounattend.xml…','modal.mount':'تركيب','modal.mounting':'جارٍ التركيب…','modal.mountFail':'فشل — أعد المحاولة','modal.err':'خطأ',
     'ana.noXml':'— لا يوجد autounattend.xml','ana.checkingRoot':'جارٍ فحص محتوى الجذر…','ana.xmlInvalid':'⚠ XML غير صالح أو غير قابل للقراءة',
@@ -1381,8 +1387,8 @@ function renderInstallers() {
     row.className = 'inst-item'
     row.innerHTML = `
       <span class="inst-ico">📦</span>
-      <span class="inst-name" title="${esc(f.path)}">${esc(f.name)}</span>
-      <span class="inst-size">${f.size ? fmtInstSize(f.size) : ''}</span>
+      <span class="inst-name" title="${esc(f.path || t('sApps.onMedia'))}">${esc(f.name)}</span>
+      <span class="inst-size">${f.onMedia ? esc(t('sApps.onMedia')) : (f.size ? fmtInstSize(f.size) : '')}</span>
       <input class="inst-args" type="text" placeholder="${esc(t('sApps.argsPh'))}" spellcheck="false" autocomplete="off">
       <span class="inst-rm" title="Remover">×</span>`
     const args = row.querySelector('.inst-args')
@@ -1614,13 +1620,23 @@ function setISO(p, size) {
   document.getElementById('iso-warn').style.display = 'none';
   document.getElementById('dz').style.display = 'none';
   updateUI();
+  // Media-resident entries belong to the previous ISO — drop before re-importing
+  st.installers = st.installers.filter(f => !f.onMedia);
+  renderInstallers();
   if (window.api) {
-    window.api.checkUnattend(p).then(({ found, ours }) => {
+    window.api.checkUnattend(p).then(async ({ found, ours }) => {
       if (!found) return;
       document.getElementById('iso-warn-msg').textContent = ours
         ? t('iso.warnOurs')
         : t('iso.warnUnknown');
       document.getElementById('iso-warn').style.display = 'flex';
+      // Customized by this app → import its bundled installers and app
+      // removals so the regenerated XML keeps them (files are already inside
+      // the ISO and travel along on extraction).
+      if (ours && window.api.readISOXML) {
+        const xml = await window.api.readISOXML(p);
+        if (xml) applyParsedExtras(parseUnattendXML(xml));
+      }
     });
   }
 }
@@ -1648,6 +1664,8 @@ document.getElementById('dz-link').addEventListener('click', async e => {
 });
 document.getElementById('iso-rm').addEventListener('click', () => {
   st.iso = null;
+  st.installers = st.installers.filter(f => !f.onMedia);  // files lived inside that ISO
+  renderInstallers();
   document.getElementById('iso-loaded').classList.remove('show');
   document.getElementById('iso-warn').style.display = 'none';
   document.getElementById('dz').style.display = '';
@@ -1968,8 +1986,27 @@ function parseUnattendXML(xmlStr) {
     const isOurs = xmlStr.includes('win10-iso-builder:v1')
     const cmds   = qq('SynchronousCommand CommandLine')
     const has    = (str) => cmds.some(c => c.includes(str))
+    // Bundled installers + app removals — reconstructed from the Description
+    // fields generateXML writes ('Install: <file>' / 'Remove app: <id>').
+    const installers = [], removeApps = []
+    for (const node of doc.querySelectorAll('SynchronousCommand')) {
+      const desc = node.querySelector('Description')?.textContent?.trim() || ''
+      const cl   = node.querySelector('CommandLine')?.textContent || ''
+      if (desc.startsWith('Install: ')) {
+        const name = desc.slice(9).trim()
+        let args = (cl.match(/C:\\Installers\\[^"]+"\s*(.*)$/) || [,''])[1].trim()
+        if (/\.msi$/i.test(name) && args === '/qn /norestart') args = ''  // default stays implicit
+        installers.push({ name, args })
+      } else if (desc.startsWith('Remove app: ')) {
+        removeApps.push(desc.slice(12).trim())
+      } else if (desc === 'Uninstall OneDrive') {
+        removeApps.push('oneDrive')
+      }
+    }
     return {
       isOurs,
+      installers,
+      removeApps,
       username: q('LocalAccount Name'),
       password: q('LocalAccount Password Value'),
       hostname: q('ComputerName'),
@@ -1988,6 +2025,21 @@ function parseUnattendXML(xmlStr) {
       },
     }
   } catch { return { error: true } }
+}
+
+// Reflect installers/removals found on an already-customized media into the
+// wizard, so regenerating the XML doesn't silently drop them. Media-resident
+// installers carry path:null — their files already travel with the ISO/USB,
+// so the copy stages skip them and only the FirstLogonCommands are recreated.
+function applyParsedExtras(cfg) {
+  if (!cfg || cfg.error) return
+  for (const inst of (cfg.installers || [])) {
+    if (!st.installers.some(i => i.name === inst.name))
+      st.installers.push({ path: null, name: inst.name, size: 0, args: inst.args || '', onMedia: true })
+  }
+  for (const id of (cfg.removeApps || [])) debloatSel[id] = true
+  renderInstallers()
+  renderDebloat()
 }
 
 let modalCfg = null  // currently parsed config for import
@@ -2041,6 +2093,11 @@ function renderDriveAnalysis(xmlStr, driveName, dev) {
     return `<div class="tw-item"><span class="tw-dot ${on ? 'on' : 'off'}"></span>${t(`check.${id}.name`)}</div>`
   }).join('')
 
+  const instItems = (cfg.installers || []).map(i =>
+    `<div class="tw-item"><span>📦</span>${esc(i.name)}${i.args ? ` <span style="color:var(--muted);font-family:var(--mono);font-size:11px">${esc(i.args)}</span>` : ''}</div>`).join('')
+  const remItems = (cfg.removeApps || []).map(id =>
+    `<div class="tw-item"><span class="tw-dot off"></span>${esc(id)}</div>`).join('')
+
   const injectLabel = cfg.isOurs ? t('ana.injectUpdate') : t('ana.injectReplace')
 
   const injectSection = dev?.mountpoint ? `
@@ -2061,6 +2118,8 @@ function renderDriveAnalysis(xmlStr, driveName, dev) {
       ${rows}
       <h4 style="margin-top:14px">${t('ana.tweaks')}</h4>
       <div class="tweak-grid">${tweakItems}</div>
+      ${instItems ? `<h4 style="margin-top:14px">${t('ana.installers')}</h4><div class="tweak-grid">${instItems}</div>` : ''}
+      ${remItems  ? `<h4 style="margin-top:14px">${t('ana.removeApps')}</h4><div class="tweak-grid">${remItems}</div>` : ''}
       ${injectSection}
     </div>`)
 
@@ -2255,6 +2314,7 @@ function importFromUSB(injectTarget = null) {
       const cb = document.getElementById(`cb-${id}`)
       if (cb && c.checks[id] !== undefined) cb.checked = c.checks[id]
     })
+    applyParsedExtras(c)  // bundled installers + app removals found on the USB
   }
   if (injectTarget) st.injectTarget = injectTarget
   closeUSBModal()
@@ -2275,6 +2335,8 @@ document.getElementById('modal-usb').addEventListener('click', e => {
 // ── Step 4 actions ───────────────────────────────────────────
 function resetAll() {
   st.iso = null; st.out = null; st.busy = false; st.injectTarget = null; st.mode = 'iso'; st.pendriveDisk = null;
+  st.installers = st.installers.filter(f => !f.onMedia);
+  renderInstallers();
   document.getElementById('iso-loaded').classList.remove('show');
   document.getElementById('iso-warn').style.display = 'none';
   document.getElementById('dz').style.display = '';
