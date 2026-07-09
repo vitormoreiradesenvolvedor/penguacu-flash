@@ -1,0 +1,74 @@
+name: Release AppImage
+
+# Gera tag + release com o AppImage quando um PR da development é mesclado na
+# master. O número da versão vem do package.json — lembre de fazer o bump antes
+# do merge. Também pode ser disparado manualmente (workflow_dispatch).
+on:
+  pull_request:
+    types: [closed]
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true &&
+       github.event.pull_request.head.ref == 'development')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # mkntfs é copiado do sistema pelo prepare-bins (pacote ntfs-3g no Ubuntu);
+      # gcc/make (compilação do ms-sys) já vêm no runner
+      - name: Instalar dependências de sistema
+        run: sudo apt-get update && sudo apt-get install -y ntfs-3g
+
+      - name: Instalar dependências do projeto
+        run: npm ci
+
+      - name: Preparar binários embarcados (7zzs, mkntfs, ms-sys)
+        run: npm run prepare-bins
+
+      - name: Gerar AppImage
+        run: npx electron-builder --linux AppImage
+
+      - name: Ler versão do package.json
+        id: ver
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Criar tag da versão (se ainda não existir)
+        run: |
+          TAG="v${{ steps.ver.outputs.version }}"
+          if git ls-remote --tags origin | grep -q "refs/tags/$TAG$"; then
+            echo "Tag $TAG já existe — mantendo."
+          else
+            git config user.name  "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag -a "$TAG" -m "Penguaçu-Flash ${{ steps.ver.outputs.version }}"
+            git push origin "$TAG"
+          fi
+
+      - name: Publicar release com o AppImage
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v${{ steps.ver.outputs.version }}"
+          APP=$(ls dist/*.AppImage)
+          if gh release view "$TAG" &>/dev/null; then
+            echo "Release $TAG já existe — atualizando o artefato."
+            gh release upload "$TAG" "$APP" --clobber
+          else
+            gh release create "$TAG" "$APP" \
+              --title "Penguaçu-Flash ${{ steps.ver.outputs.version }}" \
+              --generate-notes
+          fi
