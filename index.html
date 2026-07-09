@@ -553,7 +553,9 @@ input[type=file] { display:none; }
         </select>
       </div>
       <button class="btn-scan" id="btn-scan-usb" data-i18n="btn.scanUsb">Analisar pendrive</button>
-      <div class="dep-badge" id="dep-xorriso">
+      <!-- Technical dependency badge hidden from end users; the build log still
+           reports a missing xorriso with install instructions when it matters -->
+      <div class="dep-badge" id="dep-xorriso" style="display:none">
         <span class="dep-dot"></span>xorriso
       </div>
     </div>
@@ -785,7 +787,9 @@ input[type=file] { display:none; }
           <div class="log-body" id="log-body"></div>
         </div>
       </div>
-      <p class="xml-note"><span data-i18n="s3.xmlNote">Só precisa do arquivo?</span> <button id="btn-xml" data-i18n="s3.xmlBtn">Exportar só o autounattend.xml</button></p>
+      <!-- Power-user XML export hidden from end users (listener stays wired; the
+           exported file wouldn't carry the bundled installers anyway) -->
+      <p class="xml-note" style="display:none"><span data-i18n="s3.xmlNote">Só precisa do arquivo?</span> <button id="btn-xml" data-i18n="s3.xmlBtn">Exportar só o autounattend.xml</button></p>
     </div>
 
     <!-- Step 6: Concluído -->
