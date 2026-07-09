@@ -39,8 +39,10 @@ jobs:
       - name: Preparar binários embarcados (7zzs, mkntfs, ms-sys)
         run: npm run prepare-bins
 
+      # --publish never: em CI o electron-builder tenta auto-publicar no GitHub
+      # e falha sem token; quem publica é o passo "Publicar release" abaixo
       - name: Gerar AppImage
-        run: npx electron-builder --linux AppImage
+        run: npx electron-builder --linux AppImage --publish never
 
       - name: Ler versão do package.json
         id: ver
