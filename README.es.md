@@ -40,15 +40,17 @@ Hacer una USB de instalación de Windows en Linux suele implicar lidiar a mano c
 
 <div align="center">
 
-| Selecciona la ISO | Versión detectada |
+| Selecciona la ISO | Identidad y edición |
 |:--:|:--:|
-| ![Seleccionar ISO](docs/01-select-iso.png) | ![ISO detectada](docs/02-iso-detected.png) |
-| **Identidad y edición** | **Ajustes de privacidad** |
-| ![Identidad](docs/03-identity.png) | ![Ajustes](docs/04-tweaks.png) |
+| ![Seleccionar ISO](docs/01-select-iso.png) | ![Identidad](docs/02-identity.png) |
+| **Ajustes de privacidad** | **Programas preinstalados** |
+| ![Ajustes](docs/03-tweaks.png) | ![Apps](docs/04-apps.png) |
+| **Quitar apps de Windows** | **Crea la USB de arranque** |
+| ![Quitar apps](docs/05-remove.png) | ![Crear USB](docs/06-create-usb.png) |
 
-**Crea la USB de arranque**
+**¡Listo!**
 
-<img src="docs/05-create-usb.png" width="440" alt="Crear USB de arranque" />
+<img src="docs/07-done.png" width="440" alt="Listo" />
 
 </div>
 

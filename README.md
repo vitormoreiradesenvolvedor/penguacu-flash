@@ -40,15 +40,17 @@ Making a Windows install USB on Linux usually means juggling `parted`, `mkntfs`,
 
 <div align="center">
 
-| Select the ISO | Auto-detected version |
+| Select the ISO | Identity & edition |
 |:--:|:--:|
-| ![Select ISO](docs/01-select-iso.png) | ![ISO detected](docs/02-iso-detected.png) |
-| **Identity & edition** | **Privacy tweaks** |
-| ![Identity](docs/03-identity.png) | ![Tweaks](docs/04-tweaks.png) |
+| ![Select ISO](docs/01-select-iso.png) | ![Identity](docs/02-identity.png) |
+| **Privacy tweaks** | **Pre-installed programs** |
+| ![Tweaks](docs/03-tweaks.png) | ![Apps](docs/04-apps.png) |
+| **Remove Windows apps** | **Create the bootable USB** |
+| ![Remove apps](docs/05-remove.png) | ![Create USB](docs/06-create-usb.png) |
 
-**Create the bootable USB**
+**Done!**
 
-<img src="docs/05-create-usb.png" width="440" alt="Create bootable USB" />
+<img src="docs/07-done.png" width="440" alt="Done" />
 
 </div>
 

@@ -40,15 +40,17 @@
 
 <div align="center">
 
-| 选择 ISO | 自动识别版本 |
+| 选择 ISO | 身份与版本 |
 |:--:|:--:|
-| ![选择 ISO](docs/01-select-iso.png) | ![已识别 ISO](docs/02-iso-detected.png) |
-| **身份与版本** | **隐私调整** |
-| ![身份](docs/03-identity.png) | ![调整](docs/04-tweaks.png) |
+| ![选择 ISO](docs/01-select-iso.png) | ![身份](docs/02-identity.png) |
+| **隐私调整** | **预装程序** |
+| ![调整](docs/03-tweaks.png) | ![应用](docs/04-apps.png) |
+| **移除 Windows 应用** | **创建可启动 U 盘** |
+| ![移除应用](docs/05-remove.png) | ![创建 U 盘](docs/06-create-usb.png) |
 
-**创建可启动 U 盘**
+**完成！**
 
-<img src="docs/05-create-usb.png" width="440" alt="创建可启动 U 盘" />
+<img src="docs/07-done.png" width="440" alt="完成" />
 
 </div>
 
