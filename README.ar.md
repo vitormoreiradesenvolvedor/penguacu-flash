@@ -40,15 +40,17 @@
 
 <div align="center">
 
-| اختر ISO | إصدار مُكتشَف تلقائيًا |
+| اختر ISO | الهوية والإصدار |
 |:--:|:--:|
-| ![اختر ISO](docs/01-select-iso.png) | ![تم اكتشاف ISO](docs/02-iso-detected.png) |
-| **الهوية والإصدار** | **إعدادات الخصوصية** |
-| ![الهوية](docs/03-identity.png) | ![الإعدادات](docs/04-tweaks.png) |
+| ![اختر ISO](docs/01-select-iso.png) | ![الهوية](docs/02-identity.png) |
+| **إعدادات الخصوصية** | **برامج مثبّتة مسبقًا** |
+| ![الإعدادات](docs/03-tweaks.png) | ![التطبيقات](docs/04-apps.png) |
+| **إزالة تطبيقات Windows** | **أنشئ قرص USB الإقلاعي** |
+| ![إزالة التطبيقات](docs/05-remove.png) | ![إنشاء USB](docs/06-create-usb.png) |
 
-**أنشئ قرص USB الإقلاعي**
+**تم!**
 
-<img src="docs/05-create-usb.png" width="440" alt="إنشاء USB إقلاعي" />
+<img src="docs/07-done.png" width="440" alt="تم" />
 
 </div>
 
