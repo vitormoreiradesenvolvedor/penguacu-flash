@@ -17,7 +17,6 @@ contextBridge.exposeInMainWorld('api', {
   checkUnattend:  (path)   => ipcRenderer.invoke('iso:hasUnattend', path),
   readISOXML:     (path)   => ipcRenderer.invoke('iso:readXML', path),
   openFolder:     (path)   => ipcRenderer.invoke('shell:openFolder', path),
-  openExternal:   (url)    => ipcRenderer.invoke('shell:openExternal', url),
   quitApp:        ()       => ipcRenderer.invoke('app:quit'),
   listUSB:        ()       => ipcRenderer.invoke('usb:list'),
   listUSBDisks:   ()       => ipcRenderer.invoke('usb:listDisks'),
