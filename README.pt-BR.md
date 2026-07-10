@@ -40,15 +40,17 @@ Fazer um pendrive de instalação do Windows no Linux geralmente significa lidar
 
 <div align="center">
 
-| Selecione a ISO | Versão detectada |
+| Selecione a ISO | Identidade & edição |
 |:--:|:--:|
-| ![Selecionar ISO](docs/01-select-iso.png) | ![ISO detectada](docs/02-iso-detected.png) |
-| **Identidade & edição** | **Ajustes de privacidade** |
-| ![Identidade](docs/03-identity.png) | ![Ajustes](docs/04-tweaks.png) |
+| ![Selecionar ISO](docs/01-select-iso.png) | ![Identidade](docs/02-identity.png) |
+| **Ajustes de privacidade** | **Programas pré-instalados** |
+| ![Ajustes](docs/03-tweaks.png) | ![Apps](docs/04-apps.png) |
+| **Remover apps do Windows** | **Crie o pendrive bootável** |
+| ![Remover apps](docs/05-remove.png) | ![Criar pendrive](docs/06-create-usb.png) |
 
-**Crie o pendrive bootável**
+**Pronto!**
 
-<img src="docs/05-create-usb.png" width="440" alt="Criar pendrive bootável" />
+<img src="docs/07-done.png" width="440" alt="Concluído" />
 
 </div>
 
