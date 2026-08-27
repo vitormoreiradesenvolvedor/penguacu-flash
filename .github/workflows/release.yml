@@ -28,16 +28,32 @@ jobs:
         with:
           node-version: 20
 
-      # mkntfs é copiado do sistema pelo prepare-bins (pacote ntfs-3g no Ubuntu);
-      # gcc/make (compilação do ms-sys) já vêm no runner
-      - name: Instalar dependências de sistema
-        run: sudo apt-get update && sudo apt-get install -y ntfs-3g
-
       - name: Instalar dependências do projeto
         run: npm ci
 
+      # prepare-bins compila mkntfs e ms-sys dentro de um container Debian 11
+      # (glibc 2.31) para que o AppImage rode em distros antigas como Ubuntu 20.04.
+      # O docker já vem instalado nos runners do GitHub — nada a instalar aqui.
       - name: Preparar binários embarcados (7zzs, mkntfs, ms-sys)
         run: npm run prepare-bins
+
+      # Falha o build cedo se algum binário exigir glibc mais nova que 2.31 —
+      # sem isto, a incompatibilidade só apareceria na máquina do usuário final.
+      - name: Verificar portabilidade dos binários embarcados
+        run: |
+          fail=0
+          for f in bin/*; do
+            v=$(objdump -T "$f" 2>/dev/null | grep -o 'GLIBC_[0-9.]*' | sed 's/GLIBC_//' | sort -V | tail -1)
+            libs=$(ldd "$f" 2>/dev/null | grep -oE 'lib[a-z0-9._+-]+\.so\.[0-9]+' | sort -u | tr '\n' ' ')
+            echo "$f -> glibc ${v:-estático} | libs ${libs:-nenhuma}"
+            if [ -n "$v" ] && [ "$(printf '%s\n2.31\n' "$v" | sort -V | tail -1)" != "2.31" ]; then
+              echo "::error file=$f::exige glibc $v (máximo permitido: 2.31)"; fail=1
+            fi
+            if echo "$libs" | grep -qE 'libntfs-3g|libfuse'; then
+              echo "::error file=$f::depende de $libs, que o usuário final pode não ter"; fail=1
+            fi
+          done
+          exit $fail
 
       # --publish never: em CI o electron-builder tenta auto-publicar no GitHub
       # e falha sem token; quem publica é o passo "Publicar release" abaixo

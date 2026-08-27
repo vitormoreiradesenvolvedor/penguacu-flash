@@ -21,8 +21,7 @@ process.env.VK_LOADER_DEBUG  = 'none'
 const { app, BrowserWindow, ipcMain, dialog, shell, nativeImage } = require('electron')
 const path    = require('path')
 const fs      = require('fs').promises
-const fsSync  = require('fs')
-const { spawn, execSync } = require('child_process')
+const { spawn } = require('child_process')
 const os      = require('os')
 
 // Bundled binaries: resources/bin/ when packaged, ./bin/ in dev mode.
@@ -31,16 +30,10 @@ const BIN_DIR = app.isPackaged
   ? path.join(process.resourcesPath, 'bin')
   : path.join(__dirname, 'bin')
 
-// Returns the path of the first resolvable candidate:
-// 1. bundled binary in BIN_DIR, 2. system PATH.  Returns null if not found.
-function binCmd(...names) {
-  for (const name of names) {
-    const bundled = path.join(BIN_DIR, name)
-    try { fsSync.accessSync(bundled, fsSync.constants.X_OK); return bundled } catch {}
-    try { execSync(`which ${name}`, { stdio: 'pipe' }); return name } catch {}
-  }
-  return null
-}
+// Binary resolution lives in lib/bins.js so it can be tested outside Electron
+// (see the module header — the bug it fixes only reproduces on other distros).
+const { createBinResolver, installHint } = require('./lib/bins')
+const { binCmd, cmdExists } = createBinResolver(BIN_DIR, msg => console.warn('[bins]', msg))
 
 // ── XML generation ────────────────────────────────────────────
 
@@ -373,10 +366,6 @@ async function readFileFromISO(isoPath, targetName) {
 
 // ── Process helpers ───────────────────────────────────────────
 
-function cmdExists(...names) {
-  return binCmd(...names) !== null
-}
-
 // Runs a command, calls onLine for each complete log line.
 // Optional onProgress(pct: number) receives percentages parsed from 7z-style
 // "\r  47%\r  48%…" carriage-return progress written to stdout.
@@ -573,7 +562,7 @@ ipcMain.on('iso:process', async (event, cfg) => {
     log('Verificando dependências...')
     if (!cmdExists('xorriso')) {
       log('xorriso não encontrado', 'error')
-      log('Instale: sudo dnf install xorriso', 'warn')
+      log(`Instale com: ${installHint('xorriso')}`, 'warn')
       return done(false)
     }
     log('xorriso OK', 'ok')
@@ -696,9 +685,9 @@ ipcMain.on('usb:createBootable', async (event, cfg) => {
     const sevenZExe  = binCmd('7zzs', '7z')
     const msSysExe   = binCmd('ms-sys')
 
-    if (!partedExe)  throw new Error('parted não encontrado — instale: sudo dnf install parted')
-    if (!mkntfsExe)  throw new Error('mkntfs não encontrado — execute: npm run prepare-bins (requer ntfsprogs instalado)')
-    if (!sevenZExe)  throw new Error('7z não encontrado — execute: npm run prepare-bins')
+    if (!partedExe)  throw new Error(`parted não encontrado — instale com: ${installHint('parted')}`)
+    if (!mkntfsExe)  throw new Error(`ferramenta de formatação NTFS não encontrada — instale com: ${installHint('ntfs-3g')}`)
+    if (!sevenZExe)  throw new Error(`7-Zip não encontrado — instale com: ${installHint('p7zip-full')}`)
     log(`Deps OK${msSysExe ? ' (UEFI + BIOS)' : ' — ms-sys ausente, apenas UEFI'}`, msSysExe ? 'ok' : 'warn')
     if (String(winVersion) === '7')
       log('Windows 7: inicie o pendrive em modo BIOS/Legacy — o boot UEFI do Win7 não funciona em NTFS na maioria dos firmwares', 'warn')
@@ -834,7 +823,13 @@ ipcMain.on('usb:createBootable', async (event, cfg) => {
 
   } catch (err) {
     log(`✗ ${err.message}`, 'error')
-    if (String(err.message).includes('code 126')) log('Autorização cancelada', 'warn')
+    // runProc rejects with "<cmd> saiu com código <n>" — match the Portuguese text,
+    // not "code <n>" (the old check never fired). pkexec: 126 = dismissed/denied.
+    const msg = String(err.message)
+    if (/código 12[67]\b/.test(msg)) {
+      if (msg.includes('126')) log('Autorização cancelada', 'warn')
+      else log(`Uma ferramenta necessária não pôde ser executada neste sistema. Instale com: ${installHint('ntfs-3g')}`, 'warn')
+    }
     done(false)
   }
 })

@@ -88,7 +88,7 @@ chmod +x Penguaçu-Flash-*.AppImage
 
 ## 🛠️ 从源码构建
 
-要求：**Node.js 18+**，构建机上需有 `ntfsprogs`（用于 `mkntfs`）以及 `gcc`/`make`（用于编译内置的 `ms-sys`）。
+要求：**Node.js 18+** 以及 **podman 或 docker**。`mkntfs` 和 `ms-sys` 在 Debian 11 容器（glibc 2.31）内编译，使 AppImage 也能在 Ubuntu 20.04 等较旧发行版上运行 —— 直接从较新的构建机复制会生成用户系统无法加载的二进制文件。设置 `PENGUACU_NO_CONTAINER=1` 可改为从本机复制（更快，但不具可移植性）。
 
 ```bash
 git clone https://github.com/vitormoreiradesenvolvedor/penguacu-flash.git
@@ -100,6 +100,9 @@ npm run prepare-bins
 
 # 生成 dist/Penguaçu-Flash-<版本>.AppImage
 npm run dist
+
+# 检查内置二进制文件能否在旧版 glibc（Ubuntu 20.04 级别）加载
+npm run test:bins
 ```
 
 开发时实时运行：
@@ -114,8 +117,13 @@ npm start
 ├── main.js              # Electron 主进程 — USB/ISO 逻辑、IPC 处理
 ├── preload.js           # 通过 contextBridge 暴露给渲染进程的 API
 ├── index.html           # 整个界面（向导、i18n 词典、样式）
+├── lib/
+│   └── bins.js          # Resolves bundled/system binaries (glibc compatibility)
+├── test/
+│   └── bins-compat.test.js
 ├── scripts/
 │   ├── prepare-bins.sh  # 下载/编译内置二进制文件
+│   ├── test-bins-in-container.sh  # 在旧版 glibc 中测试二进制文件
 │   └── afterPack.js     # 包装 Electron 二进制（环境变量 + 噪声过滤）
 └── build/
     ├── icon.svg         # 图标源文件

@@ -88,7 +88,7 @@ Você também pode **analisar um pendrive existente**, ler o `autounattend.xml` 
 
 ## 🛠️ Compilar do código-fonte
 
-Requisitos: **Node.js 18+**, e na máquina de build o `ntfsprogs` (para o `mkntfs`) mais `gcc`/`make` (para compilar o `ms-sys` embutido).
+Requisitos: **Node.js 18+** e **podman ou docker**. O `mkntfs` e o `ms-sys` são compilados dentro de um container Debian 11 (glibc 2.31) para que o AppImage também rode em distribuições antigas como o Ubuntu 20.04 — copiá-los de uma máquina de build moderna gera binários que o sistema do usuário não consegue carregar. Use `PENGUACU_NO_CONTAINER=1` para copiar do seu próprio sistema (mais rápido, porém sem portabilidade).
 
 ```bash
 git clone https://github.com/vitormoreiradesenvolvedor/penguacu-flash.git
@@ -100,6 +100,9 @@ npm run prepare-bins
 
 # Gera dist/Penguaçu-Flash-<versão>.AppImage
 npm run dist
+
+# Verifica se os binários embutidos carregam em glibc antiga (nível Ubuntu 20.04)
+npm run test:bins
 ```
 
 Para rodar durante o desenvolvimento:
@@ -114,8 +117,13 @@ npm start
 ├── main.js              # Processo principal do Electron — lógica de USB/ISO, IPC
 ├── preload.js           # API exposta ao renderer via contextBridge
 ├── index.html           # Toda a interface (assistente, dicionário i18n, estilos)
+├── lib/
+│   └── bins.js          # Resolves bundled/system binaries (glibc compatibility)
+├── test/
+│   └── bins-compat.test.js
 ├── scripts/
 │   ├── prepare-bins.sh  # Baixa/compila os binários embutidos
+│   ├── test-bins-in-container.sh  # Testa os binários em glibc antiga
 │   └── afterPack.js     # Envolve o binário do Electron (ambiente + filtro de ruído)
 └── build/
     ├── icon.svg         # Ícone-fonte
