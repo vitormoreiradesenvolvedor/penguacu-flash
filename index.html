@@ -688,6 +688,10 @@ input[type=file] { display:none; }
     <div class="step-panel" id="step-2">
       <h2 class="step-title" data-i18n="s2.title">O que você quer ativar?</h2>
       <p class="step-sub" data-i18n="s2.sub">Aplicado via registro no primeiro login</p>
+      <div class="sel-links">
+        <button id="tw-all"  data-i18n="sRem.selAll">Selecionar todos</button>
+        <button id="tw-none" data-i18n="sRem.selNone">Limpar seleção</button>
+      </div>
       <div class="checks" id="checks"></div>
     </div>
 
@@ -1351,6 +1355,19 @@ function rebuildChecks() {
   if (bypassRow) bypassRow.style.display = ver === '11' ? '' : 'none'
 }
 rebuildChecks();
+
+// Bulk toggles for the tweak rows, same pattern as the debloat step. Rows hidden
+// for the selected Windows version (win11Bypass outside Win11) are skipped so
+// "select all" only touches what the user can actually see.
+function setAllChecks(on) {
+  CHECKS.forEach(({ id }) => {
+    const cb = document.getElementById(`cb-${id}`)
+    if (!cb || cb.closest('.cr')?.style.display === 'none') return
+    cb.checked = on
+  })
+}
+document.getElementById('tw-all').addEventListener('click',  () => setAllChecks(true))
+document.getElementById('tw-none').addEventListener('click', () => setAllChecks(false))
 
 // ── State ────────────────────────────────────────────────────
 const st = { step: 0, iso: null, out: null, busy: false, injectTarget: null, mode: 'iso', pendriveDisk: null, installers: [] };
