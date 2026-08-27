@@ -88,7 +88,7 @@ chmod +x Penguaçu-Flash-*.AppImage
 
 ## 🛠️ البناء من المصدر
 
-المتطلّبات: **Node.js 18+**، وعلى جهاز البناء `ntfsprogs` (لأجل `mkntfs`) بالإضافة إلى `gcc`/`make` (لتصريف `ms-sys` المضمّن).
+المتطلّبات: **Node.js 18+** و**podman أو docker**. يتم تصريف `mkntfs` و`ms-sys` داخل حاوية Debian 11 (glibc 2.31) حتى يعمل ملف AppImage أيضًا على التوزيعات الأقدم مثل Ubuntu 20.04 — فنسخهما من جهاز بناء حديث ينتج ملفات تنفيذية لا يستطيع نظام المستخدم تحميلها. اضبط `PENGUACU_NO_CONTAINER=1` للنسخ من نظامك بدلاً من ذلك (أسرع، لكن غير محمول).
 
 ```bash
 git clone https://github.com/vitormoreiradesenvolvedor/penguacu-flash.git
@@ -100,6 +100,9 @@ npm run prepare-bins
 
 # ينتج dist/Penguaçu-Flash-<الإصدار>.AppImage
 npm run dist
+
+# يتحقّق من تحميل الثنائيات المضمّنة على glibc قديمة (بمستوى Ubuntu 20.04)
+npm run test:bins
 ```
 
 للتشغيل أثناء التطوير:
@@ -114,8 +117,13 @@ npm start
 ├── main.js              # عملية Electron الرئيسية — منطق USB/ISO وIPC
 ├── preload.js           # واجهة برمجية مكشوفة للـ renderer عبر contextBridge
 ├── index.html           # الواجهة بالكامل (المعالج، قاموس i18n، الأنماط)
+├── lib/
+│   └── bins.js          # Resolves bundled/system binaries (glibc compatibility)
+├── test/
+│   └── bins-compat.test.js
 ├── scripts/
 │   ├── prepare-bins.sh  # ينزّل/يصرّف الملفات الثنائية المضمّنة
+│   ├── test-bins-in-container.sh  # يختبر الثنائيات على glibc قديمة
 │   └── afterPack.js     # يغلّف ثنائي Electron (البيئة + مرشّح الضجيج)
 └── build/
     ├── icon.svg         # الأيقونة المصدرية

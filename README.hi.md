@@ -88,7 +88,7 @@ chmod +x Penguaçu-Flash-*.AppImage
 
 ## 🛠️ स्रोत से बिल्ड करें
 
-आवश्यकताएँ: **Node.js 18+**, और बिल्ड मशीन पर `ntfsprogs` (`mkntfs` के लिए) तथा `gcc`/`make` (अंतर्निहित `ms-sys` कंपाइल करने के लिए)।
+आवश्यकताएँ: **Node.js 18+** और **podman या docker**। `mkntfs` तथा `ms-sys` को Debian 11 कंटेनर (glibc 2.31) के अंदर कंपाइल किया जाता है, जिससे AppImage Ubuntu 20.04 जैसी पुरानी डिस्ट्रिब्यूशन पर भी चले — आधुनिक बिल्ड मशीन से कॉपी करने पर बने बाइनरी उपयोगकर्ता का सिस्टम लोड नहीं कर पाता। अपने ही सिस्टम से कॉपी करने के लिए `PENGUACU_NO_CONTAINER=1` सेट करें (तेज़, पर पोर्टेबल नहीं)।
 
 ```bash
 git clone https://github.com/vitormoreiradesenvolvedor/penguacu-flash.git
@@ -100,6 +100,9 @@ npm run prepare-bins
 
 # dist/Penguaçu-Flash-<संस्करण>.AppImage बनाता है
 npm run dist
+
+# जाँचता है कि अंतर्निहित बाइनरी पुराने glibc (Ubuntu 20.04 स्तर) पर लोड होती हैं
+npm run test:bins
 ```
 
 विकास के दौरान चलाने के लिए:
@@ -114,8 +117,13 @@ npm start
 ├── main.js              # Electron मुख्य प्रक्रिया — USB/ISO लॉजिक, IPC
 ├── preload.js           # contextBridge के माध्यम से रेंडरर को दी गई API
 ├── index.html           # पूरी इंटरफ़ेस (विज़ार्ड, i18n शब्दकोश, स्टाइल)
+├── lib/
+│   └── bins.js          # Resolves bundled/system binaries (glibc compatibility)
+├── test/
+│   └── bins-compat.test.js
 ├── scripts/
 │   ├── prepare-bins.sh  # अंतर्निहित बाइनरी डाउनलोड/कंपाइल करता है
+│   ├── test-bins-in-container.sh  # पुराने glibc पर बाइनरी परखता है
 │   └── afterPack.js     # Electron बाइनरी को रैप करता है (एनवायरनमेंट + नॉइज़ फ़िल्टर)
 └── build/
     ├── icon.svg         # स्रोत आइकन

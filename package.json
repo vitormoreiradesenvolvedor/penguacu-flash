@@ -1,12 +1,13 @@
 {
   "name": "win10-iso-builder",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Crie pendrives bootáveis do Windows 7, 8.1, 10 e 11",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "prepare-bins": "bash scripts/prepare-bins.sh",
-    "dist": "npm run prepare-bins && electron-builder --linux AppImage"
+    "dist": "npm run prepare-bins && electron-builder --linux AppImage",
+    "test:bins": "bash scripts/test-bins-in-container.sh"
   },
   "devDependencies": {
     "electron": "^28.3.0",
@@ -38,6 +39,7 @@
       "main.js",
       "preload.js",
       "index.html",
+      "lib/**",
       "build/icon.png"
     ],
     "extraResources": [
