@@ -136,9 +136,19 @@ elif [ -n "$CONTAINER_ENGINE" ]; then
     -e "MSSYS_VERSIONS=$MSSYS_VERSIONS" \
     "$BUILDER_IMAGE" bash -euc '
       export DEBIAN_FRONTEND=noninteractive
-      apt-get update -qq >/dev/null
-      apt-get install -y -qq build-essential curl ca-certificates uuid-dev pkg-config \
-                             gettext file binutils >/dev/null
+      PKGS="build-essential curl ca-certificates uuid-dev pkg-config gettext file binutils"
+      # Debian 11 left LTS: its packages move from deb.debian.org to
+      # archive.debian.org (the index may still download while the .debs 404).
+      # Fall back to the archive so the build keeps working after the move.
+      if ! { apt-get update -qq >/dev/null && apt-get install -y -qq $PKGS >/dev/null 2>&1; }; then
+        echo "  → espelho padrão do Debian 11 indisponível — usando archive.debian.org"
+        rm -f /etc/apt/sources.list.d/*
+        printf "%s\n" "deb http://archive.debian.org/debian bullseye main" \
+                      "deb http://archive.debian.org/debian-security bullseye-security main" \
+          > /etc/apt/sources.list
+        apt-get -o Acquire::Check-Valid-Until=false update -qq >/dev/null
+        apt-get install -y -qq $PKGS >/dev/null
+      fi
       echo "  → dependências de build instaladas (glibc $(ldd --version | head -1 | grep -oE "[0-9]+\.[0-9]+$"))"
 
       cd /tmp
