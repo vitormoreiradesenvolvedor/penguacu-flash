@@ -92,6 +92,31 @@ else
 fi
 report "$BIN_DIR/7zzs"
 
+# ── uefi-ntfs.img — UEFI:NTFS boot partition image (Rufus) ──────────────────
+# Without it the USB drive is a single NTFS partition, which UEFI firmware
+# cannot read: the drive boots in BIOS/CSM mode only and UEFI-only machines
+# silently skip it. Bundled at build time (never fetched at runtime) and pinned
+# to a Rufus release + checksum so a changed upstream file fails the build.
+# Source code of UEFI:NTFS (GPLv2+): https://github.com/pbatard/uefi-ntfs
+UEFI_NTFS_TAG="v4.16"
+UEFI_NTFS_SHA256="72683fa1250eeea772d3399277b434d4e55ba8dd0dc926e52d817e701fc2eb9e"
+UEFI_NTFS_URL="https://raw.githubusercontent.com/pbatard/rufus/${UEFI_NTFS_TAG}/res/uefi/uefi-ntfs.img"
+
+uefi_ntfs_ok() {
+  [ -f "$BIN_DIR/uefi-ntfs.img" ] &&
+    [ "$(sha256sum "$BIN_DIR/uefi-ntfs.img" | cut -d' ' -f1)" = "$UEFI_NTFS_SHA256" ]
+}
+
+if uefi_ntfs_ok; then
+  ok "uefi-ntfs.img já existe (Rufus $UEFI_NTFS_TAG)"
+else
+  echo "→ Baixando imagem UEFI:NTFS (Rufus $UEFI_NTFS_TAG)..."
+  curl -fsSL --connect-timeout 15 --retry 2 "$UEFI_NTFS_URL" -o "$BIN_DIR/uefi-ntfs.img" \
+    || err "Falha ao baixar uefi-ntfs.img. Verifique a conexão com a internet."
+  uefi_ntfs_ok || { rm -f "$BIN_DIR/uefi-ntfs.img"; err "uefi-ntfs.img com checksum inesperado — arquivo removido"; }
+  ok "uefi-ntfs.img baixado e verificado — boot UEFI habilitado"
+fi
+
 # ── mkntfs + ms-sys — built in the compatibility container ──────────────────
 NEED_BUILD=false
 is_portable "$BIN_DIR/mkntfs" || NEED_BUILD=true

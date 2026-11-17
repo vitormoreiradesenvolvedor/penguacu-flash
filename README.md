@@ -25,8 +25,8 @@ A fully self-contained AppImage that formats your USB, copies Windows, and injec
 
 Making a Windows install USB on Linux usually means juggling `parted`, `mkntfs`, `7z`, and boot-sector tools by hand — and then Windows still stops halfway through setup asking questions. Penguaçu-Flash does the whole thing in a single window:
 
-- 🐧 **Runs anywhere** — one self-contained AppImage. No dependencies to install: `7-Zip`, `mkntfs`, and `ms-sys` are bundled inside.
-- 💾 **Real bootable USB** — partitions, formats NTFS, copies Windows, and writes the boot sectors for both **UEFI and BIOS/legacy**.
+- 🐧 **Runs anywhere** — one self-contained AppImage. No dependencies to install: `7-Zip`, `mkntfs`, `ms-sys` and the UEFI:NTFS boot image are bundled inside.
+- 💾 **Real bootable USB** — partitions, formats NTFS, copies Windows, and writes the boot sectors for both **UEFI and BIOS/legacy**. A small UEFI:NTFS partition (same layout as Rufus) lets UEFI firmware boot the NTFS drive even when `install.wim` is larger than 4 GB.
 - 🪄 **Truly unattended** — injects a personalized `autounattend.xml` so setup flies past the questions with your username, password, hostname, timezone, and edition already filled in.
 - 🧭 **Windows 7 → 11, auto-detected** — the version is recognized from the ISO filename, and the answer file adapts to each version's schema.
 - 🛡️ **Windows 11 without the roadblocks** — optional bypass for the TPM 2.0, Secure Boot, RAM and CPU requirements.
@@ -95,7 +95,7 @@ git clone https://github.com/vitormoreiradesenvolvedor/penguacu-flash.git
 cd penguacu-flash
 npm install
 
-# Downloads/compiles the bundled binaries (7-Zip, mkntfs, ms-sys) into ./bin
+# Downloads/compiles the bundled binaries (7-Zip, mkntfs, ms-sys, uefi-ntfs.img) into ./bin
 npm run prepare-bins
 
 # Produces dist/Penguaçu-Flash-<version>.AppImage
@@ -118,9 +118,11 @@ npm start
 ├── preload.js           # contextBridge API exposed to the renderer
 ├── index.html           # The whole UI (wizard, i18n dictionary, styles)
 ├── lib/
-│   └── bins.js          # Resolves bundled/system binaries (glibc compatibility)
+│   ├── bins.js          # Resolves bundled/system binaries (glibc compatibility)
+│   └── usb-layout.js    # USB partition layout (NTFS + UEFI:NTFS)
 ├── test/
-│   └── bins-compat.test.js
+│   ├── bins-compat.test.js
+│   └── usb-layout.test.js
 ├── scripts/
 │   ├── prepare-bins.sh  # Builds/fetches bundled binaries (in a container)
 │   ├── test-bins-in-container.sh
@@ -156,6 +158,8 @@ Creating a bootable USB **erases all data** on the selected drive. Double-check 
 ## 📄 License
 
 Released under the [MIT License](LICENSE) — free to use, modify and share.
+
+The AppImage bundles third-party components under their own licenses: [7-Zip](https://www.7-zip.org) (LGPL), [ntfs-3g/mkntfs](https://github.com/tuxera/ntfs-3g) (GPLv2), [ms-sys](https://ms-sys.sourceforge.net) (GPLv2) and [UEFI:NTFS](https://github.com/pbatard/uefi-ntfs) (GPLv2+, image taken from [Rufus](https://github.com/pbatard/rufus)). Their source code is available at the linked projects.
 
 <div align="center">
 <br/>

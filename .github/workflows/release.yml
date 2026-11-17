@@ -55,6 +55,11 @@ jobs:
           done
           exit $fail
 
+      # Confere o layout do pendrive (NTFS + partição UEFI:NTFS) num arquivo de
+      # imagem — sem root e sem dispositivo real.
+      - name: Testar layout de partições do pendrive
+        run: npm run test:layout
+
       # --publish never: em CI o electron-builder tenta auto-publicar no GitHub
       # e falha sem token; quem publica é o passo "Publicar release" abaixo
       - name: Gerar AppImage

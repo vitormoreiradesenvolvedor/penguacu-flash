@@ -34,6 +34,18 @@ const BIN_DIR = app.isPackaged
 // (see the module header — the bug it fixes only reproduces on other distros).
 const { createBinResolver, installHint } = require('./lib/bins')
 const { binCmd, cmdExists } = createBinResolver(BIN_DIR, msg => console.warn('[bins]', msg))
+const { partitionPath, computeLayout, partedArgs } = require('./lib/usb-layout')
+
+// UEFI:NTFS boot image (Rufus) — fetched and checksum-verified by prepare-bins at
+// BUILD time, never downloaded at runtime. Without it the USB drive boots in
+// BIOS/CSM mode only (see lib/usb-layout.js).
+const UEFI_NTFS_IMG = path.join(BIN_DIR, 'uefi-ntfs.img')
+async function uefiNtfsImage() {
+  try {
+    const { size } = await fs.stat(UEFI_NTFS_IMG)
+    return size > 0 ? { path: UEFI_NTFS_IMG, size } : null
+  } catch { return null }
+}
 
 // ── XML generation ────────────────────────────────────────────
 
@@ -529,12 +541,13 @@ ipcMain.handle('dialog:openInstallers', async () => {
   return out
 })
 
-ipcMain.handle('check:deps', () => ({
-  xorriso: cmdExists('xorriso'),
-  parted:  cmdExists('parted'),
-  mkntfs:  cmdExists('mkntfs', 'mkfs.ntfs'),
-  p7zip:   cmdExists('7zzs', '7z'),
-  mssys:   cmdExists('ms-sys'),
+ipcMain.handle('check:deps', async () => ({
+  xorriso:  cmdExists('xorriso'),
+  parted:   cmdExists('parted'),
+  mkntfs:   cmdExists('mkntfs', 'mkfs.ntfs'),
+  p7zip:    cmdExists('7zzs', '7z'),
+  mssys:    cmdExists('ms-sys'),
+  uefiNtfs: (await uefiNtfsImage()) !== null,
 }))
 
 ipcMain.handle('xml:generate', (_, cfg) => generateXML(cfg))
@@ -655,7 +668,7 @@ ipcMain.handle('usb:listDisks', async () => {
   } catch { return [] }
 })
 
-// Create a bootable Windows USB from ISO: partition → format NTFS → extract → inject XML → write boot sectors
+// Create a bootable Windows USB from ISO: partition → format NTFS → boot sectors + UEFI:NTFS → extract → inject XML
 ipcMain.on('usb:createBootable', async (event, cfg) => {
   const log  = (msg, type = 'info') => event.sender.send('iso:log', { msg, type })
   const done = (ok, extra = {})     => event.sender.send('iso:done', { success: ok, ...extra })
@@ -664,7 +677,7 @@ ipcMain.on('usb:createBootable', async (event, cfg) => {
 
   const { device, isoPath, xmlContent, volumeLabel, winVersion, installers } = cfg
   // /dev/sdb → /dev/sdb1, but /dev/mmcblk0 or /dev/nvme0n1 → p1 suffix
-  const partition = /\d$/.test(device) ? `${device}p1` : `${device}1`
+  const partition = partitionPath(device, 1)
   const devBase   = device.split('/').pop()  // "sdb" — for /sys/block/<dev>/stat
   // Volume label goes into a root bash -c string → whitelist strictly (no shell
   // metacharacters possible) and cap at NTFS's 32-char label limit.
@@ -688,7 +701,15 @@ ipcMain.on('usb:createBootable', async (event, cfg) => {
     if (!partedExe)  throw new Error(`parted não encontrado — instale com: ${installHint('parted')}`)
     if (!mkntfsExe)  throw new Error(`ferramenta de formatação NTFS não encontrada — instale com: ${installHint('ntfs-3g')}`)
     if (!sevenZExe)  throw new Error(`7-Zip não encontrado — instale com: ${installHint('p7zip-full')}`)
-    log(`Deps OK${msSysExe ? ' (UEFI + BIOS)' : ' — ms-sys ausente, apenas UEFI'}`, msSysExe ? 'ok' : 'warn')
+
+    // UEFI boot needs the UEFI:NTFS image, BIOS boot needs ms-sys. Say exactly
+    // which modes the drive will boot in — never claim UEFI without the image.
+    const uefiImg = await uefiNtfsImage()
+    if (!uefiImg && !msSysExe)
+      throw new Error('imagem UEFI:NTFS (bin/uefi-ntfs.img) e ms-sys ausentes — o pendrive não inicializaria em nenhum modo. Execute "npm run prepare-bins" e gere o app novamente')
+    if (uefiImg && msSysExe) log('Deps OK (UEFI + BIOS)', 'ok')
+    else if (uefiImg)        log('Deps OK — ms-sys ausente: o pendrive inicializará apenas em modo UEFI', 'warn')
+    else                     log('Deps OK — imagem UEFI:NTFS ausente: o pendrive inicializará APENAS em modo BIOS/Legacy (CSM); em PCs só-UEFI ele será ignorado', 'warn')
     if (String(winVersion) === '7')
       log('Windows 7: inicie o pendrive em modo BIOS/Legacy — o boot UEFI do Win7 não funciona em NTFS na maioria dos firmwares', 'warn')
 
@@ -713,20 +734,31 @@ ipcMain.on('usb:createBootable', async (event, cfg) => {
     // AppImage FUSE mount because FUSE restricts access to the mount owner.
     prog(7)
     log(`Particionando e formatando como "${volLabel}"... (autorização necessária)`)
+    // Layout: p1 NTFS (Windows files) + p2 1 MiB FAT/0xEF at the end (UEFI:NTFS).
+    const diskBytes = parseInt((await runCmd('lsblk', ['-b', '-d', '-n', '-o', 'SIZE', device])).trim(), 10)
+    const layout    = computeLayout(diskBytes, uefiImg ? uefiImg.size : 0)
     const mkntfsPriv = await stageForPriv(mkntfsExe)
     const partedPriv = await stageForPriv(partedExe)
     const msSysPriv  = msSysExe ? await stageForPriv(msSysExe) : null
+    const uefiPriv   = uefiImg ? await stageForPriv(uefiImg.path) : null
     const bootCmd = msSysPriv
       ? ` && "${msSysPriv}" -7 "${device}" && "${msSysPriv}" --ntfs "${partition}"`
       : ''
+    // Written at the partition's byte offset on the whole device (seek is in bs
+    // units = MiB) — does not depend on udev having created the p2 node yet.
+    const uefiCmd = uefiPriv
+      ? ` && dd if="${uefiPriv}" of="${device}" bs=1M seek=${layout.espStartMiB} conv=notrunc,fsync status=none`
+      : ''
     await runPriv(
-      `"${partedPriv}" -s "${device}" mklabel msdos mkpart primary ntfs 1MiB 100% set 1 boot on && ` +
+      `"${partedPriv}" -s "${device}" ${partedArgs(layout).join(' ')} && ` +
       `(partprobe "${device}" 2>/dev/null; sleep 1) && ` +
-      `"${mkntfsPriv}" -f -L "${volLabel}" "${partition}"${bootCmd}`,
+      `"${mkntfsPriv}" -f -L "${volLabel}" "${partition}"${bootCmd}${uefiCmd}`,
       l => log(l, 'dim')
     )
     prog(15)
-    log(msSysPriv ? 'Partição formatada + boot UEFI/BIOS gravado' : 'Partição formatada (boot UEFI)', 'ok')
+    const modes = [uefiPriv && 'UEFI', msSysPriv && 'BIOS'].filter(Boolean).join('/')
+    log(`Partição formatada + boot ${modes} gravado`, 'ok')
+    if (uefiPriv) log('  partição UEFI:NTFS criada — permite boot UEFI a partir do NTFS', 'dim')
 
     // 4. Mount — try the kernel NTFS3 driver first (noticeably faster writes than
     // the ntfs-3g FUSE driver), fall back to udisks default if refused.
@@ -817,6 +849,9 @@ ipcMain.on('usb:createBootable', async (event, cfg) => {
       log(`Aviso ao desmontar: ${e.message}`, 'warn')
       log('Ejete o pendrive pelo gerenciador de arquivos antes de remover', 'warn')
     })
+    // The desktop may have auto-mounted the small UEFI:NTFS partition — release it too
+    if (layout.espStartMiB !== null)
+      await runCmd('udisksctl', ['unmount', '-b', partitionPath(device, 2)]).catch(() => {})
     prog(100, 'Pendrive pronto!')
     log('Pendrive pronto! Pode remover com segurança.', 'ok')
     done(true, { pendrivePath: mountPoint })
