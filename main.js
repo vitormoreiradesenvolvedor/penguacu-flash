@@ -34,7 +34,7 @@ const BIN_DIR = app.isPackaged
 // (see the module header — the bug it fixes only reproduces on other distros).
 const { createBinResolver, installHint } = require('./lib/bins')
 const { binCmd, cmdExists } = createBinResolver(BIN_DIR, msg => console.warn('[bins]', msg))
-const { partitionPath, computeLayout, partedArgs } = require('./lib/usb-layout')
+const { partitionPath, computeLayout, partedArgs, wipeCmd } = require('./lib/usb-layout')
 
 // UEFI:NTFS boot image (Rufus) — fetched and checksum-verified by prepare-bins at
 // BUILD time, never downloaded at runtime. Without it the USB drive boots in
@@ -749,7 +749,10 @@ ipcMain.on('usb:createBootable', async (event, cfg) => {
     const uefiCmd = uefiPriv
       ? ` && dd if="${uefiPriv}" of="${device}" bs=1M seek=${layout.espStartMiB} conv=notrunc,fsync status=none`
       : ''
+    // Zero the first MiB first: leftovers of a previous ISO (El Torito) there make
+    // UEFI firmware boot the old content instead of ours (see lib/usb-layout.js).
     await runPriv(
+      `${wipeCmd(device)} && ` +
       `"${partedPriv}" -s "${device}" ${partedArgs(layout).join(' ')} && ` +
       `(partprobe "${device}" 2>/dev/null; sleep 1) && ` +
       `"${mkntfsPriv}" -f -L "${volLabel}" "${partition}"${bootCmd}${uefiCmd}`,

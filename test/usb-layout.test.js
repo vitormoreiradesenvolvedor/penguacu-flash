@@ -13,7 +13,7 @@ const fs   = require('fs')
 const os   = require('os')
 const path = require('path')
 const { execFileSync } = require('child_process')
-const { MiB, partitionPath, computeLayout, partedArgs } = require('../lib/usb-layout')
+const { MiB, partitionPath, computeLayout, partedArgs, wipeCmd } = require('../lib/usb-layout')
 
 let pass = 0, fail = 0
 function check(name, got, want) {
@@ -79,6 +79,27 @@ if (has('parted') && has('sfdisk')) {
   }
 } else {
   console.log('  - parted/sfdisk ausente — tabela de partições real não verificada')
+}
+
+// 4. A drive that held a Linux ISO before (Fedora DVD on the Dell Vostro):
+//    its El Torito record must not survive, or EDK2 firmware boots the old ISO.
+if (has('xorriso') && has('parted') && has('mkfs.vfat')) {
+  const tmp  = fs.mkdtempSync(path.join(os.tmpdir(), 'penguacu-eltorito-'))
+  const efi  = path.join(tmp, 'efi.img'), disk = path.join(tmp, 'disk.img')
+  fs.mkdirSync(path.join(tmp, 'root'))
+  fs.writeFileSync(efi, ''); fs.truncateSync(efi, 2 * MiB)
+  execFileSync('mkfs.vfat', [efi], { stdio: 'ignore' })
+  execFileSync('xorriso', ['-as', 'mkisofs', '-V', 'Fedora-test', '-o', disk, '-e', 'efi.img',
+    '-no-emul-boot', '-graft-points', path.join(tmp, 'root'), `efi.img=${efi}`], { stdio: 'ignore' })
+  fs.truncateSync(disk, 64 * MiB)
+  const vd = () => { const b = Buffer.alloc(4096); const fd = fs.openSync(disk, 'r'); fs.readSync(fd, b, 0, 4096, 16 * 2048); fs.closeSync(fd); return b.toString('latin1') }
+  check('ISO de teste tem El Torito antes do wipe', vd().includes('EL TORITO'), true)
+  execFileSync('sh', ['-c', wipeCmd(disk)])
+  execFileSync('parted', ['-s', disk, ...partedArgs(computeLayout(64 * MiB, MiB))])
+  check('wipe remove ISO9660/El Torito do início do disco', /CD001|EL TORITO/.test(vd()), false)
+  fs.rmSync(tmp, { recursive: true, force: true })
+} else {
+  console.log('  - xorriso/parted/mkfs.vfat ausente — limpeza de ISO antiga não verificada')
 }
 
 console.log(`\n${pass} ok, ${fail} falha(s)`)
