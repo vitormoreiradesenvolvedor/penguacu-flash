@@ -48,7 +48,7 @@ npm run dist
 
 ```bash
 npm install
-npm run prepare-bins   # fetches/compiles bundled binaries into ./bin
+npm run prepare-bins   # copies vendored binaries into ./bin (offline)
 npm start              # run live
 ```
 

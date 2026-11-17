@@ -3,39 +3,52 @@
 # Run once before "npm run dist" on the BUILD machine.
 # End users run the resulting AppImage without installing anything.
 #
+# OFFLINE BY DESIGN — nothing is downloaded, by the app or by the build:
+#   vendor/bin/  ready-to-ship portable binaries (+ SHA256SUMS), committed to git
+#   vendor/src/  the source tarballs they were built from (+ SHA256SUMS)
+# Default mode copies vendor/bin/ into bin/ after verifying checksums and
+# portability — no network, no container. Upstream sites (tuxera, sourceforge,
+# GNU, Debian mirrors, 7-zip.org, GitHub) going away cannot break the build.
+#
+#   bash scripts/prepare-bins.sh             # offline: vendor/bin → bin
+#   bash scripts/prepare-bins.sh --rebuild   # recompile vendor/src in a container
+#
 # COMPATIBILITY RULE — read before changing anything here:
 #   These binaries run on the USER's machine, not ours. Copying mkntfs/ms-sys from
 #   a modern build system produces an AppImage that dies on older distros:
 #     mkntfs: error while loading shared libraries: libntfs-3g.so.89
 #     ms-sys: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.34' not found
 #   (both reproduced on Ubuntu 20.04, glibc 2.31 — it could not create a USB drive).
-#   So we build them inside a Debian 11 container (glibc 2.31) with libntfs-3g
-#   linked *into* mkntfs, which makes them work on any distro with glibc >= 2.17.
+#   So --rebuild compiles them inside a Debian 11 container (glibc 2.31): mkntfs
+#   with libntfs-3g linked in, ms-sys/parted/partprobe fully static. The result
+#   runs on any distro with glibc >= 2.17.
 #
-# Set PENGUACU_NO_CONTAINER=1 to skip the container and copy from the build system
-# instead — faster for local development, but the result is NOT portable.
+# --rebuild is the only mode that needs the network (container image + Debian
+# build packages); its sources still come from vendor/src. It rewrites
+# vendor/bin/ and its SHA256SUMS — commit both afterwards.
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BIN_DIR="$SCRIPT_DIR/../bin"
+ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+BIN_DIR="$ROOT/bin"
+VENDOR_BIN="$ROOT/vendor/bin"
+VENDOR_SRC="$ROOT/vendor/src"
 mkdir -p "$BIN_DIR"
 
-# Debian 11 = glibc 2.31, same level as Ubuntu 20.04, and still has working apt
-# repositories (Ubuntu 20.04's have moved to old-releases).
+# Every file the AppImage ships in resources/bin/
+BUNDLED="7zzs mkntfs ms-sys parted partprobe uefi-ntfs.img"
+# Of those, the ELF executables that must pass the portability check
+EXECUTABLES="7zzs mkntfs ms-sys parted partprobe"
+
+# Debian 11 = glibc 2.31, same level as Ubuntu 20.04
 BUILDER_IMAGE="${PENGUACU_BUILDER_IMAGE:-docker.io/library/debian:11}"
-# ntfs-3g tarballs as "<version>:<sha512>" — the checksum pins the exact upstream
-# file whichever mirror serves it (tuxera.com answers 403 to GitHub's runners;
-# Fedora's lookaside cache keeps the identical tarball).
-NTFS3G_SOURCES="2022.10.3:891589483954423b19bef6e8a174fb4311ad92b6397a0db80f77c72b746bf18c2fa12457a571947f92755637a6bc784188920d4f017ae12a420819ab0d74af59
-2021.8.22:e0544df78a6c352999e1206d7b5d71c56e39396b7a0936a261d728c2ac9d61c6b95ef297f8529ac2a5146f31c1c9e43066d3e281064d4f5d781a04eba51f536d"
-MSSYS_VERSIONS="2.7.0 2.6.0"
+NTFS3G_VERSION="2022.10.3"
+MSSYS_VERSION="2.7.0"
+PARTED_VERSION="3.6"
 
 ok()   { printf "  \033[32m✓\033[0m %s\n" "$*"; }
 warn() { printf "  \033[33m⚠\033[0m %s\n" "$*"; }
 err()  { printf "  \033[31m✗\033[0m %s\n" "$*"; exit 1; }
-
-echo "=== Preparando binários para AppImage standalone ==="
-echo ""
 
 # ── Highest glibc version a binary requires (empty when static) ──────────────
 max_glibc() {
@@ -48,7 +61,7 @@ max_glibc() {
 is_portable() {
   local f="$1" v
   [ -f "$f" ] || return 1
-  if ldd "$f" 2>/dev/null | grep -qE "libntfs-3g|libfuse|not found"; then return 1; fi
+  if ldd "$f" 2>/dev/null | grep -qE "libntfs-3g|libfuse|libparted|libreadline|libdevmapper|not found"; then return 1; fi
   v=$(max_glibc "$f")
   [ -z "$v" ] && return 0                                  # fully static
   [ "$(printf '%s\n2.31\n' "$v" | sort -V | head -1)" = "$v" ]
@@ -60,90 +73,31 @@ report() {
   printf "      glibc: %s | libs: %s\n" "${v:-nenhuma (estático)}" "${deps:-nenhuma}"
 }
 
-# ── Container engine detection ──────────────────────────────────────────────
-CONTAINER_ENGINE=""
-if [ "${PENGUACU_NO_CONTAINER:-0}" != "1" ]; then
+# ── --rebuild: compile vendor/src inside the compatibility container ─────────
+rebuild() {
+  echo "=== Recompilando binários a partir de vendor/src ==="
+  (cd "$VENDOR_SRC" && sha256sum -c --quiet SHA256SUMS) || err "vendor/src/SHA256SUMS não confere — fontes alteradas"
+  ok "fontes conferidas (vendor/src/SHA256SUMS)"
+
+  local engine="" src_opt=":ro" out_opt=""
   for E in podman docker; do
-    if command -v "$E" &>/dev/null; then CONTAINER_ENGINE="$E"; break; fi
+    if command -v "$E" &>/dev/null; then engine="$E"; break; fi
   done
-fi
+  [ -n "$engine" ] || err "--rebuild precisa de podman ou docker"
+  # podman on SELinux hosts needs the :z mount label; docker does not use it here
+  [ "$engine" = "podman" ] && { src_opt=":ro,z"; out_opt=":z"; }
 
-# podman on SELinux hosts needs the :z mount label; docker does not use it here
-MOUNT_OPT=""
-[ "$CONTAINER_ENGINE" = "podman" ] && MOUNT_OPT=":z"
-
-# ── 7zzs — official static binary, portable by construction ─────────────────
-if [ ! -f "$BIN_DIR/7zzs" ]; then
-  echo "→ Baixando 7-Zip static binary..."
-  TMP=$(mktemp -d)
-  DOWNLOADED=false
-  for VER in 2602 2501 2500 2409 2408 2407; do
-    URL="https://www.7-zip.org/a/7z${VER}-linux-x64.tar.xz"
-    if curl -fsSL --connect-timeout 15 "$URL" -o "$TMP/7z.tar.xz" 2>/dev/null; then
-      DOWNLOADED=true
-      break
-    fi
-  done
-  $DOWNLOADED || err "Falha ao baixar 7-Zip. Verifique a conexão com a internet."
-  tar -xJf "$TMP/7z.tar.xz" -C "$TMP" 2>/dev/null || err "Falha ao extrair arquivo 7-Zip"
-  [ -f "$TMP/7zzs" ] || err "7zzs não encontrado no arquivo baixado"
-  cp "$TMP/7zzs" "$BIN_DIR/7zzs"
-  chmod +x "$BIN_DIR/7zzs"
-  rm -rf "$TMP"
-  ok "7zzs baixado e pronto"
-else
-  ok "7zzs já existe ($(du -sh "$BIN_DIR/7zzs" | cut -f1))"
-fi
-report "$BIN_DIR/7zzs"
-
-# ── uefi-ntfs.img — UEFI:NTFS boot partition image (Rufus) ──────────────────
-# Without it the USB drive is a single NTFS partition, which UEFI firmware
-# cannot read: the drive boots in BIOS/CSM mode only and UEFI-only machines
-# silently skip it. Bundled at build time (never fetched at runtime) and pinned
-# to a Rufus release + checksum so a changed upstream file fails the build.
-# Source code of UEFI:NTFS (GPLv2+): https://github.com/pbatard/uefi-ntfs
-UEFI_NTFS_TAG="v4.16"
-UEFI_NTFS_SHA256="72683fa1250eeea772d3399277b434d4e55ba8dd0dc926e52d817e701fc2eb9e"
-UEFI_NTFS_URL="https://raw.githubusercontent.com/pbatard/rufus/${UEFI_NTFS_TAG}/res/uefi/uefi-ntfs.img"
-
-uefi_ntfs_ok() {
-  [ -f "$BIN_DIR/uefi-ntfs.img" ] &&
-    [ "$(sha256sum "$BIN_DIR/uefi-ntfs.img" | cut -d' ' -f1)" = "$UEFI_NTFS_SHA256" ]
-}
-
-if uefi_ntfs_ok; then
-  ok "uefi-ntfs.img já existe (Rufus $UEFI_NTFS_TAG)"
-else
-  echo "→ Baixando imagem UEFI:NTFS (Rufus $UEFI_NTFS_TAG)..."
-  curl -fsSL --connect-timeout 15 --retry 2 "$UEFI_NTFS_URL" -o "$BIN_DIR/uefi-ntfs.img" \
-    || err "Falha ao baixar uefi-ntfs.img. Verifique a conexão com a internet."
-  uefi_ntfs_ok || { rm -f "$BIN_DIR/uefi-ntfs.img"; err "uefi-ntfs.img com checksum inesperado — arquivo removido"; }
-  ok "uefi-ntfs.img baixado e verificado — boot UEFI habilitado"
-fi
-
-# ── mkntfs + ms-sys — built in the compatibility container ──────────────────
-NEED_BUILD=false
-is_portable "$BIN_DIR/mkntfs" || NEED_BUILD=true
-is_portable "$BIN_DIR/ms-sys" || NEED_BUILD=true
-
-if [ "$NEED_BUILD" = "false" ]; then
-  ok "mkntfs e ms-sys já presentes e portáveis"
-  report "$BIN_DIR/mkntfs"
-  report "$BIN_DIR/ms-sys"
-elif [ -n "$CONTAINER_ENGINE" ]; then
-  echo "→ Compilando mkntfs e ms-sys em $BUILDER_IMAGE via $CONTAINER_ENGINE (glibc 2.31)..."
-  echo "  (leva alguns minutos na primeira execução; a imagem fica em cache depois)"
-
-  "$CONTAINER_ENGINE" run --rm \
-    -v "$BIN_DIR:/out${MOUNT_OPT}" \
-    -e "NTFS3G_SOURCES=$NTFS3G_SOURCES" \
-    -e "MSSYS_VERSIONS=$MSSYS_VERSIONS" \
+  local out; out=$(mktemp -d)
+  echo "→ Compilando em $BUILDER_IMAGE via $engine (glibc 2.31)..."
+  "$engine" run --rm \
+    -v "$VENDOR_SRC:/src${src_opt}" \
+    -v "$out:/out${out_opt}" \
+    -e "NTFS3G_VERSION=$NTFS3G_VERSION" -e "MSSYS_VERSION=$MSSYS_VERSION" -e "PARTED_VERSION=$PARTED_VERSION" \
     "$BUILDER_IMAGE" bash -euc '
       export DEBIAN_FRONTEND=noninteractive
-      PKGS="build-essential curl ca-certificates uuid-dev pkg-config gettext file binutils"
-      # Debian 11 left LTS: its packages move from deb.debian.org to
+      PKGS="build-essential uuid-dev pkg-config gettext file binutils xz-utils"
+      # Debian 11 left LTS: its packages moved from deb.debian.org to
       # archive.debian.org (the index may still download while the .debs 404).
-      # Fall back to the archive so the build keeps working after the move.
       if ! { apt-get update -qq >/dev/null && apt-get install -y -qq $PKGS >/dev/null 2>&1; }; then
         echo "  → espelho padrão do Debian 11 indisponível — usando archive.debian.org"
         rm -f /etc/apt/sources.list.d/*
@@ -155,110 +109,68 @@ elif [ -n "$CONTAINER_ENGINE" ]; then
       fi
       echo "  → dependências de build instaladas (glibc $(ldd --version | head -1 | grep -oE "[0-9]+\.[0-9]+$"))"
 
-      cd /tmp
       # ── mkntfs: --disable-library links libntfs-3g INTO the binaries, so the
       #    user does not need a matching libntfs-3g.so.NN installed.
-      BUILT=false
-      for SRC in $NTFS3G_SOURCES; do
-        V=${SRC%%:*}; SUM=${SRC#*:}; F="ntfs-3g_ntfsprogs-${V}.tgz"
-        echo "  → baixando ntfs-3g $V..."
-        GOT=false
-        for URL in "https://tuxera.com/opensource/$F" \
-                   "https://src.fedoraproject.org/repo/pkgs/ntfs-3g/$F/sha512/$SUM/$F"; do
-          curl -fsSL --connect-timeout 30 --retry 2 "$URL" -o ntfs.tgz 2>/dev/null || continue
-          if [ "$(sha512sum ntfs.tgz | cut -d" " -f1)" = "$SUM" ]; then GOT=true; break; fi
-          echo "  ⚠ checksum inesperado em $URL — ignorado"
-        done
-        $GOT || { echo "  ⚠ ntfs-3g $V indisponível"; continue; }
-        tar xzf ntfs.tgz || continue
-        cd "ntfs-3g_ntfsprogs-${V}" || continue
-        echo "  → compilando ntfsprogs $V..."
-        if ./configure --disable-shared --enable-static --disable-library \
-                       --disable-ntfs-3g --enable-really-static \
-                       --disable-mount-helper --disable-ldconfig >/tmp/conf.log 2>&1 \
-           && make -j"$(nproc)" >/tmp/make.log 2>&1; then
-          B=$(find . -type f -name mkntfs -perm -u+x | head -1)
-          if [ -n "$B" ]; then
-            strip "$B" 2>/dev/null || true
-            cp "$B" /out/mkntfs && chmod 755 /out/mkntfs
-            echo "  ✓ mkntfs $V compilado"
-            BUILT=true
-            break
-          fi
-        fi
-        echo "  ⚠ falha ao compilar ntfs-3g $V"
-        tail -5 /tmp/conf.log /tmp/make.log 2>/dev/null || true
-        cd /tmp
-      done
-      $BUILT || { echo "  ✗ nenhuma versão do ntfs-3g compilou"; exit 1; }
+      cd /tmp && tar xzf "/src/ntfs-3g_ntfsprogs-${NTFS3G_VERSION}.tgz" && cd "ntfs-3g_ntfsprogs-${NTFS3G_VERSION}"
+      echo "  → compilando ntfsprogs $NTFS3G_VERSION..."
+      ./configure --disable-shared --enable-static --disable-library \
+                  --disable-ntfs-3g --enable-really-static \
+                  --disable-mount-helper --disable-ldconfig >/tmp/conf.log 2>&1 \
+        && make -j"$(nproc)" >/tmp/make.log 2>&1 \
+        || { tail -20 /tmp/conf.log /tmp/make.log; exit 1; }
+      cp "$(find . -type f -name mkntfs -perm -u+x | head -1)" /out/mkntfs
 
       # ── ms-sys: only needs libc → link fully static, zero runtime deps.
-      cd /tmp
-      BUILT=false
-      for V in $MSSYS_VERSIONS; do
-        echo "  → baixando ms-sys $V..."
-        curl -fsSL -L --connect-timeout 30 --max-redirs 10 --retry 2 \
-             "https://downloads.sourceforge.net/ms-sys/ms-sys-${V}.tar.gz" -o ms.tgz || continue
-        [ -s ms.tgz ] || continue
-        tar xzf ms.tgz || continue
-        SRC=$(find /tmp -maxdepth 2 -type d -name "ms-sys-${V}" | head -1)
-        [ -n "$SRC" ] || continue
-        echo "  → compilando ms-sys $V (estático)..."
-        if make -C "$SRC" LDFLAGS=-static >/tmp/ms.log 2>&1; then
-          B=$(find "$SRC" -type f -name ms-sys -perm -u+x | head -1)
-          if [ -n "$B" ] && file "$B" | grep -q ELF; then
-            strip "$B" 2>/dev/null || true
-            cp "$B" /out/ms-sys && chmod 755 /out/ms-sys
-            echo "  ✓ ms-sys $V compilado (estático)"
-            BUILT=true
-            break
-          fi
-        fi
-        echo "  ⚠ falha ao compilar ms-sys $V"
-        tail -5 /tmp/ms.log 2>/dev/null || true
-      done
-      $BUILT || { echo "  ✗ nenhuma versão do ms-sys compilou"; exit 1; }
+      cd /tmp && tar xzf "/src/ms-sys-${MSSYS_VERSION}.tar.gz"
+      echo "  → compilando ms-sys $MSSYS_VERSION (estático)..."
+      make -C "/tmp/ms-sys-${MSSYS_VERSION}" LDFLAGS=-static >/tmp/ms.log 2>&1 || { tail -20 /tmp/ms.log; exit 1; }
+      cp "$(find "/tmp/ms-sys-${MSSYS_VERSION}" -type f -name ms-sys -perm -u+x | head -1)" /out/ms-sys
+
+      # ── parted + partprobe: libparted linked in, fully static. No device-mapper
+      #    or readline — the app only runs parted in script mode (-s).
+      cd /tmp && tar xJf "/src/parted-${PARTED_VERSION}.tar.xz" && cd "parted-${PARTED_VERSION}"
+      echo "  → compilando parted $PARTED_VERSION (estático)..."
+      ./configure --disable-shared --enable-static --disable-device-mapper \
+                  --without-readline --disable-nls >/tmp/pconf.log 2>&1 \
+        && make -j"$(nproc)" LDFLAGS=-all-static >/tmp/pmake.log 2>&1 \
+        || { tail -20 /tmp/pconf.log /tmp/pmake.log; exit 1; }
+      cp parted/parted partprobe/partprobe /out/
+
+      strip /out/* && chmod 755 /out/*
+      echo "  ✓ mkntfs, ms-sys, parted e partprobe compilados"
     ' || err "Falha na compilação dentro do container. Verifique a saída acima."
 
-  is_portable "$BIN_DIR/mkntfs" || err "mkntfs compilado mas não passou na verificação de portabilidade"
-  is_portable "$BIN_DIR/ms-sys" || err "ms-sys compilado mas não passou na verificação de portabilidade"
-  ok "mkntfs portável (libntfs-3g embutida)"
-  report "$BIN_DIR/mkntfs"
-  ok "ms-sys portável — UEFI + BIOS habilitado"
-  report "$BIN_DIR/ms-sys"
+  for f in mkntfs ms-sys parted partprobe; do
+    is_portable "$out/$f" || err "$f compilado mas não passou na verificação de portabilidade"
+    cp "$out/$f" "$VENDOR_BIN/$f"
+  done
+  rm -rf "$out"
+  (cd "$VENDOR_BIN" && sha256sum $BUNDLED > SHA256SUMS)
+  ok "vendor/bin/ e vendor/bin/SHA256SUMS atualizados — faça commit de ambos"
+  echo ""
+}
 
-else
-  # ── Fallback: no container engine (or PENGUACU_NO_CONTAINER=1) ────────────
-  warn "Nenhum engine de container disponível (podman/docker) — copiando do sistema."
-  warn "O AppImage resultante pode NÃO funcionar em distros mais antigas que a sua."
-  warn "Para um build portável, instale podman ou docker e execute novamente."
+[ "${1:-}" = "--rebuild" ] && rebuild
 
-  if [ ! -f "$BIN_DIR/mkntfs" ]; then
-    for CMD in mkntfs mkfs.ntfs; do
-      if P=$(command -v "$CMD" 2>/dev/null); then
-        cp "$P" "$BIN_DIR/mkntfs"; chmod +x "$BIN_DIR/mkntfs"
-        ok "mkntfs copiado de $P"
-        break
-      fi
-    done
-    [ -f "$BIN_DIR/mkntfs" ] || err "mkntfs não encontrado. Instale ntfsprogs/ntfs-3g e execute novamente."
-  fi
-  report "$BIN_DIR/mkntfs"
-  is_portable "$BIN_DIR/mkntfs" || warn "mkntfs NÃO é portável — falhará em distros com glibc antiga"
+# ── Offline copy: vendor/bin → bin ───────────────────────────────────────────
+echo "=== Preparando binários para AppImage standalone (offline) ==="
+echo ""
+(cd "$VENDOR_BIN" && sha256sum -c --quiet SHA256SUMS) \
+  || err "vendor/bin/SHA256SUMS não confere — binários alterados ou incompletos"
+ok "vendor/bin conferido (SHA256SUMS)"
 
-  if [ ! -f "$BIN_DIR/ms-sys" ]; then
-    if P=$(command -v ms-sys 2>/dev/null); then
-      cp "$P" "$BIN_DIR/ms-sys"; chmod +x "$BIN_DIR/ms-sys"
-      ok "ms-sys copiado de $P — UEFI + BIOS habilitado"
-    else
-      warn "ms-sys não encontrado no sistema — o pendrive suportará apenas UEFI"
-    fi
-  fi
-  if [ -f "$BIN_DIR/ms-sys" ]; then
-    report "$BIN_DIR/ms-sys"
-    is_portable "$BIN_DIR/ms-sys" || warn "ms-sys NÃO é portável — falhará em distros com glibc antiga"
-  fi
-fi
+for f in $BUNDLED; do
+  cp "$VENDOR_BIN/$f" "$BIN_DIR/$f"
+done
+chmod 755 $(printf "$BIN_DIR/%s " $EXECUTABLES)
+chmod 644 "$BIN_DIR/uefi-ntfs.img"
+
+for f in $EXECUTABLES; do
+  is_portable "$BIN_DIR/$f" || err "$f não é portável — execute com --rebuild"
+  ok "$f"
+  report "$BIN_DIR/$f"
+done
+ok "uefi-ntfs.img (UEFI:NTFS — boot UEFI a partir do NTFS)"
 
 echo ""
 echo "Binários em bin/:"

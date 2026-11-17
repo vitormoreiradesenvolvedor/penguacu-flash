@@ -88,14 +88,14 @@ chmod +x Penguaçu-Flash-*.AppImage
 
 ## 🛠️ स्रोत से बिल्ड करें
 
-आवश्यकताएँ: **Node.js 18+** और **podman या docker**। `mkntfs` तथा `ms-sys` को Debian 11 कंटेनर (glibc 2.31) के अंदर कंपाइल किया जाता है, जिससे AppImage Ubuntu 20.04 जैसी पुरानी डिस्ट्रिब्यूशन पर भी चले — आधुनिक बिल्ड मशीन से कॉपी करने पर बने बाइनरी उपयोगकर्ता का सिस्टम लोड नहीं कर पाता। अपने ही सिस्टम से कॉपी करने के लिए `PENGUACU_NO_CONTAINER=1` सेट करें (तेज़, पर पोर्टेबल नहीं)।
+आवश्यकताएँ: **Node.js 18+**। बिल्ड **ऑफ़लाइन** है: अंतर्निहित बाइनरी (7-Zip, mkntfs, ms-sys, parted, partprobe और UEFI:NTFS इमेज) `vendor/bin/` में SHA-256 जाँच के साथ रिपॉज़िटरी में ही रखी गई हैं, और उनका सोर्स कोड `vendor/src/` में है — tuxera, SourceForge, GNU या किसी अन्य साइट से कुछ भी डाउनलोड नहीं होता। इन्हें Debian 11 कंटेनर (glibc 2.31) में कंपाइल किया गया है ताकि AppImage Ubuntu 20.04 जैसी पुरानी डिस्ट्रीब्यूशन पर भी चले; `bash scripts/prepare-bins.sh --rebuild` इन्हें `vendor/src/` से फिर से कंपाइल करता है (podman या docker और कंटेनर इमेज के लिए नेटवर्क चाहिए)।
 
 ```bash
 git clone https://github.com/vitormoreiradesenvolvedor/penguacu-flash.git
 cd penguacu-flash
 npm install
 
-# अंतर्निहित बाइनरी (7-Zip, mkntfs, ms-sys) को ./bin में डाउनलोड/कंपाइल करता है
+# vendor/bin से अंतर्निहित बाइनरी ./bin में कॉपी करता है (ऑफ़लाइन, checksum जाँच के साथ)
 npm run prepare-bins
 
 # dist/Penguaçu-Flash-<संस्करण>.AppImage बनाता है
@@ -122,9 +122,10 @@ npm start
 ├── test/
 │   └── bins-compat.test.js
 ├── scripts/
-│   ├── prepare-bins.sh  # अंतर्निहित बाइनरी डाउनलोड/कंपाइल करता है
+│   ├── prepare-bins.sh  # vendor/ से बाइनरी कॉपी करता है (ऑफ़लाइन); --rebuild फिर से कंपाइल करता है
 │   ├── test-bins-in-container.sh  # पुराने glibc पर बाइनरी परखता है
 │   └── afterPack.js     # Electron बाइनरी को रैप करता है (एनवायरनमेंट + नॉइज़ फ़िल्टर)
+├── vendor/              # bin/ + src/ + SHA256SUMS — offline build inputs
 └── build/
     ├── icon.svg         # स्रोत आइकन
     └── icons/           # रेंडर किए गए PNG आकार

@@ -88,14 +88,14 @@ chmod +x Penguaçu-Flash-*.AppImage
 
 ## 🛠️ البناء من المصدر
 
-المتطلّبات: **Node.js 18+** و**podman أو docker**. يتم تصريف `mkntfs` و`ms-sys` داخل حاوية Debian 11 (glibc 2.31) حتى يعمل ملف AppImage أيضًا على التوزيعات الأقدم مثل Ubuntu 20.04 — فنسخهما من جهاز بناء حديث ينتج ملفات تنفيذية لا يستطيع نظام المستخدم تحميلها. اضبط `PENGUACU_NO_CONTAINER=1` للنسخ من نظامك بدلاً من ذلك (أسرع، لكن غير محمول).
+المتطلّبات: **Node.js 18+**. البناء يتم **دون اتصال بالإنترنت**: الملفات الثنائية المضمّنة (7-Zip و mkntfs و ms-sys و parted و partprobe وصورة UEFI:NTFS) محفوظة في `vendor/bin/` مع التحقق منها عبر SHA-256، ومصادرها في `vendor/src/` — لا يتم تنزيل أي شيء من tuxera أو SourceForge أو GNU أو أي موقع آخر. تم تصريفها داخل حاوية Debian 11 (glibc 2.31) حتى يعمل ملف AppImage أيضًا على التوزيعات الأقدم مثل Ubuntu 20.04؛ ويعيد الأمر `bash scripts/prepare-bins.sh --rebuild` تصريفها من `vendor/src/` (يتطلّب podman أو docker واتصالًا بالشبكة لصورة الحاوية).
 
 ```bash
 git clone https://github.com/vitormoreiradesenvolvedor/penguacu-flash.git
 cd penguacu-flash
 npm install
 
-# يقوم بتنزيل/تصريف الملفات الثنائية المضمّنة (7-Zip، mkntfs، ms-sys) إلى ./bin
+# ينسخ الملفات الثنائية المضمّنة من vendor/bin إلى ./bin (دون اتصال، مع التحقق من checksum)
 npm run prepare-bins
 
 # ينتج dist/Penguaçu-Flash-<الإصدار>.AppImage
@@ -122,9 +122,10 @@ npm start
 ├── test/
 │   └── bins-compat.test.js
 ├── scripts/
-│   ├── prepare-bins.sh  # ينزّل/يصرّف الملفات الثنائية المضمّنة
+│   ├── prepare-bins.sh  # ينسخ الملفات الثنائية من vendor/ (دون اتصال)؛ ‎--rebuild يعيد التصريف
 │   ├── test-bins-in-container.sh  # يختبر الثنائيات على glibc قديمة
 │   └── afterPack.js     # يغلّف ثنائي Electron (البيئة + مرشّح الضجيج)
+├── vendor/              # bin/ + src/ + SHA256SUMS — offline build inputs
 └── build/
     ├── icon.svg         # الأيقونة المصدرية
     └── icons/           # أحجام PNG المُصيَّرة

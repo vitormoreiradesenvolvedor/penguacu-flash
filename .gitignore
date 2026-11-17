@@ -4,8 +4,8 @@ node_modules/
 # Build output
 dist/
 
-# Bundled binaries — fetched/compiled by `npm run prepare-bins`, not committed
-bin/
+# Bundled binaries — copied from vendor/bin by `npm run prepare-bins`, not committed
+/bin/
 
 # OS / editor cruft
 .DS_Store

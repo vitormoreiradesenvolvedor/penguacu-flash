@@ -88,14 +88,14 @@ chmod +x Penguaçu-Flash-*.AppImage
 
 ## 🛠️ 从源码构建
 
-要求：**Node.js 18+** 以及 **podman 或 docker**。`mkntfs` 和 `ms-sys` 在 Debian 11 容器（glibc 2.31）内编译，使 AppImage 也能在 Ubuntu 20.04 等较旧发行版上运行 —— 直接从较新的构建机复制会生成用户系统无法加载的二进制文件。设置 `PENGUACU_NO_CONTAINER=1` 可改为从本机复制（更快，但不具可移植性）。
+要求：**Node.js 18+**。构建过程**完全离线**：内置二进制文件（7-Zip、mkntfs、ms-sys、parted、partprobe 以及 UEFI:NTFS 镜像）已提交在 `vendor/bin/` 中并通过 SHA-256 校验，其源代码位于 `vendor/src/` —— 不会从 tuxera、SourceForge、GNU 或其他任何网站下载。它们在 Debian 11 容器（glibc 2.31）内编译，使 AppImage 也能在 Ubuntu 20.04 等较旧发行版上运行；`bash scripts/prepare-bins.sh --rebuild` 可从 `vendor/src/` 重新编译（需要 podman 或 docker，以及下载容器镜像的网络）。
 
 ```bash
 git clone https://github.com/vitormoreiradesenvolvedor/penguacu-flash.git
 cd penguacu-flash
 npm install
 
-# 下载/编译内置二进制文件（7-Zip、mkntfs、ms-sys）到 ./bin
+# 将 vendor/bin 中的内置二进制文件复制到 ./bin（离线，校验 checksum）
 npm run prepare-bins
 
 # 生成 dist/Penguaçu-Flash-<版本>.AppImage
@@ -122,9 +122,10 @@ npm start
 ├── test/
 │   └── bins-compat.test.js
 ├── scripts/
-│   ├── prepare-bins.sh  # 下载/编译内置二进制文件
+│   ├── prepare-bins.sh  # 复制 vendor/ 中的二进制文件（离线）；--rebuild 重新编译
 │   ├── test-bins-in-container.sh  # 在旧版 glibc 中测试二进制文件
 │   └── afterPack.js     # 包装 Electron 二进制（环境变量 + 噪声过滤）
+├── vendor/              # bin/ + src/ + SHA256SUMS — offline build inputs
 └── build/
     ├── icon.svg         # 图标源文件
     └── icons/           # 渲染出的 PNG 尺寸

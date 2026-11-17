@@ -25,7 +25,7 @@ Um AppImage totalmente autocontido que formata seu pendrive, copia o Windows e i
 
 Fazer um pendrive de instalação do Windows no Linux geralmente significa lidar com `parted`, `mkntfs`, `7z` e ferramentas de setor de boot na mão — e ainda assim o Windows para no meio da instalação fazendo perguntas. O Penguaçu-Flash faz tudo em uma única janela:
 
-- 🐧 **Roda em qualquer lugar** — um AppImage autocontido. Sem dependências para instalar: `7-Zip`, `mkntfs`, `ms-sys` e a imagem de boot UEFI:NTFS já vêm embutidos.
+- 🐧 **Roda em qualquer lugar** — um AppImage autocontido. Sem dependências para instalar: `7-Zip`, `mkntfs`, `ms-sys`, `parted` e a imagem de boot UEFI:NTFS já vêm embutidos.
 - 💾 **Pendrive bootável de verdade** — particiona, formata NTFS, copia o Windows e grava os setores de boot para **UEFI e BIOS/legado**. Uma pequena partição UEFI:NTFS (mesmo layout do Rufus) permite que firmwares UEFI iniciem o pendrive NTFS mesmo quando o `install.wim` passa de 4 GB.
 - 🪄 **Realmente sem intervenção** — injeta um `autounattend.xml` personalizado para o setup passar direto pelas perguntas, com usuário, senha, nome da máquina, fuso e edição já preenchidos.
 - 🧭 **Windows 7 → 11, detectado automaticamente** — a versão é reconhecida pelo nome do arquivo ISO, e o arquivo de resposta se adapta ao schema de cada versão.
@@ -88,14 +88,14 @@ Você também pode **analisar um pendrive existente**, ler o `autounattend.xml` 
 
 ## 🛠️ Compilar do código-fonte
 
-Requisitos: **Node.js 18+** e **podman ou docker**. O `mkntfs` e o `ms-sys` são compilados dentro de um container Debian 11 (glibc 2.31) para que o AppImage também rode em distribuições antigas como o Ubuntu 20.04 — copiá-los de uma máquina de build moderna gera binários que o sistema do usuário não consegue carregar. Use `PENGUACU_NO_CONTAINER=1` para copiar do seu próprio sistema (mais rápido, porém sem portabilidade).
+Requisitos: **Node.js 18+**. O build é **offline**: os binários embutidos (7-Zip, mkntfs, ms-sys, parted, partprobe e a imagem UEFI:NTFS) ficam versionados em `vendor/bin/`, conferidos por SHA-256, junto com os códigos-fonte de origem em `vendor/src/` — nada é baixado da tuxera, SourceForge, GNU ou qualquer outro site. Eles foram compilados dentro de um container Debian 11 (glibc 2.31) para que o AppImage também rode em distribuições antigas como o Ubuntu 20.04; `bash scripts/prepare-bins.sh --rebuild` recompila a partir de `vendor/src/` (precisa de podman ou docker e de rede para a imagem do container).
 
 ```bash
 git clone https://github.com/vitormoreiradesenvolvedor/penguacu-flash.git
 cd penguacu-flash
 npm install
 
-# Baixa/compila os binários embutidos (7-Zip, mkntfs, ms-sys, uefi-ntfs.img) em ./bin
+# Copia os binários embutidos de vendor/bin para ./bin (offline, com checksum)
 npm run prepare-bins
 
 # Gera dist/Penguaçu-Flash-<versão>.AppImage
@@ -124,9 +124,10 @@ npm start
 │   ├── bins-compat.test.js
 │   └── usb-layout.test.js
 ├── scripts/
-│   ├── prepare-bins.sh  # Baixa/compila os binários embutidos
+│   ├── prepare-bins.sh  # Copia os binários de vendor/ (offline); --rebuild recompila
 │   ├── test-bins-in-container.sh  # Testa os binários em glibc antiga
 │   └── afterPack.js     # Envolve o binário do Electron (ambiente + filtro de ruído)
+├── vendor/              # bin/ + src/ + SHA256SUMS — offline build inputs
 └── build/
     ├── icon.svg         # Ícone-fonte
     └── icons/           # Tamanhos PNG renderizados
@@ -159,7 +160,7 @@ Criar um pendrive bootável **apaga todos os dados** do disco selecionado. Confi
 
 Distribuído sob a [Licença MIT](LICENSE) — livre para usar, modificar e compartilhar.
 
-O AppImage embute componentes de terceiros sob suas próprias licenças: [7-Zip](https://www.7-zip.org) (LGPL), [ntfs-3g/mkntfs](https://github.com/tuxera/ntfs-3g) (GPLv2), [ms-sys](https://ms-sys.sourceforge.net) (GPLv2) e [UEFI:NTFS](https://github.com/pbatard/uefi-ntfs) (GPLv2+, imagem obtida do [Rufus](https://github.com/pbatard/rufus)). O código-fonte deles está disponível nos projetos indicados.
+O AppImage embute componentes de terceiros sob suas próprias licenças: [7-Zip](https://www.7-zip.org) (LGPL), [ntfs-3g/mkntfs](https://github.com/tuxera/ntfs-3g) (GPLv2), [ms-sys](https://ms-sys.sourceforge.net) (GPLv2), [GNU parted](https://www.gnu.org/software/parted/) (GPLv3) e [UEFI:NTFS](https://github.com/pbatard/uefi-ntfs) (GPLv2+, imagem obtida do [Rufus](https://github.com/pbatard/rufus)). Os códigos-fonte dos componentes GPL estão em `vendor/src/`.
 
 <div align="center">
 <br/>

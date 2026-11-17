@@ -25,7 +25,7 @@ A fully self-contained AppImage that formats your USB, copies Windows, and injec
 
 Making a Windows install USB on Linux usually means juggling `parted`, `mkntfs`, `7z`, and boot-sector tools by hand — and then Windows still stops halfway through setup asking questions. Penguaçu-Flash does the whole thing in a single window:
 
-- 🐧 **Runs anywhere** — one self-contained AppImage. No dependencies to install: `7-Zip`, `mkntfs`, `ms-sys` and the UEFI:NTFS boot image are bundled inside.
+- 🐧 **Runs anywhere** — one self-contained AppImage. No dependencies to install: `7-Zip`, `mkntfs`, `ms-sys`, `parted` and the UEFI:NTFS boot image are bundled inside.
 - 💾 **Real bootable USB** — partitions, formats NTFS, copies Windows, and writes the boot sectors for both **UEFI and BIOS/legacy**. A small UEFI:NTFS partition (same layout as Rufus) lets UEFI firmware boot the NTFS drive even when `install.wim` is larger than 4 GB.
 - 🪄 **Truly unattended** — injects a personalized `autounattend.xml` so setup flies past the questions with your username, password, hostname, timezone, and edition already filled in.
 - 🧭 **Windows 7 → 11, auto-detected** — the version is recognized from the ISO filename, and the answer file adapts to each version's schema.
@@ -88,14 +88,14 @@ You can also **analyze an existing USB**, read back its `autounattend.xml`, and 
 
 ## 🛠️ Build from source
 
-Requirements: **Node.js 18+** and **podman or docker**. `mkntfs` and `ms-sys` are compiled inside a Debian 11 container (glibc 2.31) so the AppImage also runs on older distributions such as Ubuntu 20.04 — copying them from a modern build machine produces binaries the user's system cannot load. Set `PENGUACU_NO_CONTAINER=1` to copy from your own system instead (faster, not portable).
+Requirements: **Node.js 18+**. The build is **offline**: the bundled binaries (7-Zip, mkntfs, ms-sys, parted, partprobe and the UEFI:NTFS image) are committed in `vendor/bin/`, checked by SHA-256, together with the sources they were built from in `vendor/src/` — no download from tuxera, SourceForge, GNU or any other site. They were compiled inside a Debian 11 container (glibc 2.31) so the AppImage also runs on older distributions such as Ubuntu 20.04; `bash scripts/prepare-bins.sh --rebuild` recompiles them from `vendor/src/` (needs podman or docker and network for the container image).
 
 ```bash
 git clone https://github.com/vitormoreiradesenvolvedor/penguacu-flash.git
 cd penguacu-flash
 npm install
 
-# Downloads/compiles the bundled binaries (7-Zip, mkntfs, ms-sys, uefi-ntfs.img) into ./bin
+# Copies the bundled binaries from vendor/bin into ./bin (offline, checksum-verified)
 npm run prepare-bins
 
 # Produces dist/Penguaçu-Flash-<version>.AppImage
@@ -124,9 +124,10 @@ npm start
 │   ├── bins-compat.test.js
 │   └── usb-layout.test.js
 ├── scripts/
-│   ├── prepare-bins.sh  # Builds/fetches bundled binaries (in a container)
+│   ├── prepare-bins.sh  # Copies vendored binaries (offline); --rebuild compiles them
 │   ├── test-bins-in-container.sh
 │   └── afterPack.js     # Wraps the Electron binary (env + noise filter)
+├── vendor/              # bin/ + src/ + SHA256SUMS — offline build inputs
 └── build/
     ├── icon.svg         # Source icon
     └── icons/           # Rendered PNG sizes
@@ -159,7 +160,7 @@ Creating a bootable USB **erases all data** on the selected drive. Double-check 
 
 Released under the [MIT License](LICENSE) — free to use, modify and share.
 
-The AppImage bundles third-party components under their own licenses: [7-Zip](https://www.7-zip.org) (LGPL), [ntfs-3g/mkntfs](https://github.com/tuxera/ntfs-3g) (GPLv2), [ms-sys](https://ms-sys.sourceforge.net) (GPLv2) and [UEFI:NTFS](https://github.com/pbatard/uefi-ntfs) (GPLv2+, image taken from [Rufus](https://github.com/pbatard/rufus)). Their source code is available at the linked projects.
+The AppImage bundles third-party components under their own licenses: [7-Zip](https://www.7-zip.org) (LGPL), [ntfs-3g/mkntfs](https://github.com/tuxera/ntfs-3g) (GPLv2), [ms-sys](https://ms-sys.sourceforge.net) (GPLv2), [GNU parted](https://www.gnu.org/software/parted/) (GPLv3) and [UEFI:NTFS](https://github.com/pbatard/uefi-ntfs) (GPLv2+, image taken from [Rufus](https://github.com/pbatard/rufus)). The sources of the GPL components are shipped in `vendor/src/`.
 
 <div align="center">
 <br/>

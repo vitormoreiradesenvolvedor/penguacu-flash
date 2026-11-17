@@ -694,6 +694,7 @@ ipcMain.on('usb:createBootable', async (event, cfg) => {
     prog(0)
     log('Verificando dependências...')
     const partedExe  = binCmd('parted')
+    const partprobeExe = binCmd('partprobe')
     const mkntfsExe  = binCmd('mkntfs', 'mkfs.ntfs')
     const sevenZExe  = binCmd('7zzs', '7z')
     const msSysExe   = binCmd('ms-sys')
@@ -739,6 +740,8 @@ ipcMain.on('usb:createBootable', async (event, cfg) => {
     const layout    = computeLayout(diskBytes, uefiImg ? uefiImg.size : 0)
     const mkntfsPriv = await stageForPriv(mkntfsExe)
     const partedPriv = await stageForPriv(partedExe)
+    // partprobe only nudges the kernel to re-read the table — optional, best effort
+    const partprobePriv = partprobeExe ? await stageForPriv(partprobeExe) : 'partprobe'
     const msSysPriv  = msSysExe ? await stageForPriv(msSysExe) : null
     const uefiPriv   = uefiImg ? await stageForPriv(uefiImg.path) : null
     const bootCmd = msSysPriv
@@ -754,7 +757,7 @@ ipcMain.on('usb:createBootable', async (event, cfg) => {
     await runPriv(
       `${wipeCmd(device)} && ` +
       `"${partedPriv}" -s "${device}" ${partedArgs(layout).join(' ')} && ` +
-      `(partprobe "${device}" 2>/dev/null; sleep 1) && ` +
+      `("${partprobePriv}" "${device}" 2>/dev/null; sleep 1) && ` +
       `"${mkntfsPriv}" -f -L "${volLabel}" "${partition}"${bootCmd}${uefiCmd}`,
       l => log(l, 'dim')
     )
