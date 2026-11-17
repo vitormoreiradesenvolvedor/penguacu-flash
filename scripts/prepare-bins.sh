@@ -23,7 +23,11 @@ mkdir -p "$BIN_DIR"
 # Debian 11 = glibc 2.31, same level as Ubuntu 20.04, and still has working apt
 # repositories (Ubuntu 20.04's have moved to old-releases).
 BUILDER_IMAGE="${PENGUACU_BUILDER_IMAGE:-docker.io/library/debian:11}"
-NTFS3G_VERSIONS="2022.10.3 2021.8.22"
+# ntfs-3g tarballs as "<version>:<sha512>" — the checksum pins the exact upstream
+# file whichever mirror serves it (tuxera.com answers 403 to GitHub's runners;
+# Fedora's lookaside cache keeps the identical tarball).
+NTFS3G_SOURCES="2022.10.3:891589483954423b19bef6e8a174fb4311ad92b6397a0db80f77c72b746bf18c2fa12457a571947f92755637a6bc784188920d4f017ae12a420819ab0d74af59
+2021.8.22:e0544df78a6c352999e1206d7b5d71c56e39396b7a0936a261d728c2ac9d61c6b95ef297f8529ac2a5146f31c1c9e43066d3e281064d4f5d781a04eba51f536d"
 MSSYS_VERSIONS="2.7.0 2.6.0"
 
 ok()   { printf "  \033[32m✓\033[0m %s\n" "$*"; }
@@ -132,7 +136,7 @@ elif [ -n "$CONTAINER_ENGINE" ]; then
 
   "$CONTAINER_ENGINE" run --rm \
     -v "$BIN_DIR:/out${MOUNT_OPT}" \
-    -e "NTFS3G_VERSIONS=$NTFS3G_VERSIONS" \
+    -e "NTFS3G_SOURCES=$NTFS3G_SOURCES" \
     -e "MSSYS_VERSIONS=$MSSYS_VERSIONS" \
     "$BUILDER_IMAGE" bash -euc '
       export DEBIAN_FRONTEND=noninteractive
@@ -155,10 +159,17 @@ elif [ -n "$CONTAINER_ENGINE" ]; then
       # ── mkntfs: --disable-library links libntfs-3g INTO the binaries, so the
       #    user does not need a matching libntfs-3g.so.NN installed.
       BUILT=false
-      for V in $NTFS3G_VERSIONS; do
+      for SRC in $NTFS3G_SOURCES; do
+        V=${SRC%%:*}; SUM=${SRC#*:}; F="ntfs-3g_ntfsprogs-${V}.tgz"
         echo "  → baixando ntfs-3g $V..."
-        curl -fsSL --connect-timeout 30 --retry 2 \
-             "https://tuxera.com/opensource/ntfs-3g_ntfsprogs-${V}.tgz" -o ntfs.tgz || continue
+        GOT=false
+        for URL in "https://tuxera.com/opensource/$F" \
+                   "https://src.fedoraproject.org/repo/pkgs/ntfs-3g/$F/sha512/$SUM/$F"; do
+          curl -fsSL --connect-timeout 30 --retry 2 "$URL" -o ntfs.tgz 2>/dev/null || continue
+          if [ "$(sha512sum ntfs.tgz | cut -d" " -f1)" = "$SUM" ]; then GOT=true; break; fi
+          echo "  ⚠ checksum inesperado em $URL — ignorado"
+        done
+        $GOT || { echo "  ⚠ ntfs-3g $V indisponível"; continue; }
         tar xzf ntfs.tgz || continue
         cd "ntfs-3g_ntfsprogs-${V}" || continue
         echo "  → compilando ntfsprogs $V..."
